@@ -55,7 +55,7 @@
 | **P0.5** | **Update `05`, `08`, `09`, `01`, `10`** (`web/` layer, dependency rules, `purge --dry-run`, template rules, env vars, 16 weeks, staging rehearsal, tech stack) | `docs/*` | ✅ **DONE** (No known drift left across any specification document) |
 | **P0.6** | Create repo (private), add `docs/` and root `CLAUDE.md` | repo root | ✅ **DONE** (Repository initialized on `main`, docs organized in `docs/`, instructions retained at root, `.gitignore` configured) |
 | **P0.7** | `pyproject.toml` (uv), lock file; ruff, mypy configs; `.gitignore`, `.dockerignore`, `.env.example` | root | ✅ **DONE** (`pyproject.toml` created, `uv.lock` generated, `uv sync` verified, ruff/mypy configured, `.dockerignore` & `.env.example` complete) |
-| **P0.8** | `docker-compose.yml` (`db`, `db_test` on tmpfs, `mailpit`) + `scripts/db/init-roles.sql` | root, `scripts/db/` | `docker compose up -d db` healthy; roles exist |
+| **P0.8** | `docker-compose.yml` (`db`, `db_test` on tmpfs, `mailpit`) + `scripts/db/init-roles.sql` | root, `scripts/db/` | ✅ **DONE** (`docker compose` up and healthy for `db`, `db_test`, `mailpit`; `app_migrator` and `app_user` roles verified) |
 | **P0.9** | `Makefile` (`setup`, `db-up`, `migrate`, `run`, `test`, `test-critical`, `lint`, `audit`, `check`) | root | `make check` runs |
 | **P0.10** | `pre-commit` (ruff, mypy, secret scan, block `.env`) | root | Commit with a fake secret is rejected |
 | **P0.11** | **CI** pipeline: lint + types + tests + `pip-audit` + secret scan on every PR | CI config | Green on empty skeleton |

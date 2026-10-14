@@ -1,0 +1,65 @@
+# ==============================================================================
+# منصة يوم التبرع بالدم — بيئة الحاويات المحلية والتطوير (Docker Compose)
+# Mapped to: docs/08-setup-env.md §5 & docs/02-database.md §7
+# ==============================================================================
+
+services:
+  # ----------------------------------------------------------------------------
+  # 1. قاعدة بيانات التطوير (Development Database)
+  # ----------------------------------------------------------------------------
+  db:
+    image: postgres:16
+    container_name: blood_db_dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: bloodday
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres_dev_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./scripts/db/init-roles.sql:/docker-entrypoint-initdb.d/10-roles.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d bloodday"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ----------------------------------------------------------------------------
+  # 2. قاعدة بيانات الاختبارات (Testing Database on tmpfs)
+  # ----------------------------------------------------------------------------
+  db_test:
+    image: postgres:16
+    container_name: blood_db_test
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: bloodday_test
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres_dev_password
+    ports:
+      - "5433:5432"
+    volumes:
+      - ./scripts/db/init-roles.sql:/docker-entrypoint-initdb.d/10-roles.sql:ro
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d bloodday_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ----------------------------------------------------------------------------
+  # 3. خادم فخ البريد المحلي (Mailpit SMTP & Web Interface)
+  # ----------------------------------------------------------------------------
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: blood_mailpit
+    restart: unless-stopped
+    ports:
+      - "8025:8025"  # واجهة الويب لمشاهدة رسائل الدعوة
+      - "1025:1025"  # خادم SMTP المحلي لالتقاط الرسائل
+
+volumes:
+  db_data:
+    name: blood_db_data
