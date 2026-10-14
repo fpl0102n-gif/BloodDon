@@ -1,0 +1,50 @@
+# Git
+.git
+.gitignore
+
+# Environment & Secrets (NEVER bake into image)
+.env
+.env.*
+
+# Python caches & virtual environments
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+ENV/
+
+# Testing & Quality
+tests/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+.coverage.*
+
+# Documentation & planning
+docs/
+
+# Local data & storage
+var/
+storage/media/*
+*.log
+*.sqlite3
+*.db
+
+# Archives & Temporary artifacts
+*.zip
+*.tar.gz
+Blood.zip
+
+# IDE & OS
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
