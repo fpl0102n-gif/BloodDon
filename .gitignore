@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+ENV/
+
+# Testing & Quality
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+.coverage.*
+
+# Environment & Secrets
+.env
+.env.*
+!.env.example
+
+# Local runtime data & storage
+var/
+storage/media/*
+!storage/media/.gitkeep
+*.log
+*.sqlite3
+*.db
+
+# Archives & Temporary artifacts
+*.zip
+*.tar.gz
+Blood.zip
+
+# IDE & OS
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
