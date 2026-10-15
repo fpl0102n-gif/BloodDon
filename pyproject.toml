@@ -76,6 +76,10 @@ select = [
 ignore = [
     "E501",  # line length handled by formatter
 ]
+allowed-confusables = [
+    "٠", "١", "٢", "٣", "٤", "٥", "٦", "٧", "٨", "٩",
+    "۰", "۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹",
+]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = [
