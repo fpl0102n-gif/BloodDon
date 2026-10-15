@@ -30,6 +30,9 @@ def is_ip_in_trusted_proxies(ip_str: str, trusted_proxies: list[str] | str | Non
     else:
         proxy_list = list(trusted_proxies)
 
+    if ip_str in proxy_list:
+        return True
+
     try:
         target_ip = ipaddress.ip_address(ip_str)
     except ValueError:
