@@ -91,6 +91,7 @@ def fake_rate_limiter() -> Generator[FakeRateLimiter, None, None]:
 # ==============================================================================
 
 _test_engine: Engine | None = None
+_db_connection_accessible: bool | None = None
 
 
 def _get_test_engine() -> Engine:
@@ -99,15 +100,24 @@ def _get_test_engine() -> Engine:
     if _test_engine is None:
         settings = get_settings()
         url = settings.test_database_url or settings.database_url
-        _test_engine = create_db_engine(url, pool_size=5, max_overflow=5)
+        _test_engine = create_db_engine(
+            url,
+            pool_size=5,
+            max_overflow=5,
+            connect_args={"connect_timeout": 1},
+        )
     return _test_engine
 
 
 @pytest.fixture
 def db_session() -> Generator[Session, None, None]:
     """Provide an isolated database session wrapped in an outer transaction that rolls back on exit."""
+    global _db_connection_accessible
     engine = _get_test_engine()
-    if not check_database_connection(engine):
+    if _db_connection_accessible is None:
+        _db_connection_accessible = check_database_connection(engine)
+
+    if not _db_connection_accessible:
         pytest.skip("PostgreSQL test database is not accessible on configured port.")
 
     connection = engine.connect()
