@@ -13,6 +13,7 @@ from app.core.logging import (
     setup_logging,
 )
 from app.core.ratelimit import (
+    FakeRateLimiter,
     InMemoryRateLimiter,
     RateLimiter,
     RateLimitResult,
@@ -27,6 +28,7 @@ __all__ = [
     "Clock",
     "ErrorCode",
     "FakeClock",
+    "FakeRateLimiter",
     "InMemoryRateLimiter",
     "RateLimitResult",
     "RateLimiter",

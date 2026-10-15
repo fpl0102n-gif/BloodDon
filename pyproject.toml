@@ -136,5 +136,8 @@ markers = [
     "api: HTTP API contract and status tests",
     "security: Authentication, authorization, and sanitization tests",
     "architecture: Dependency direction and layering tests",
+    "web: Server-rendered templates and HTML tests",
+    "concurrency: Multi-threaded and race condition tests",
+    "cli: CLI operational command tests",
 ]
 addopts = "-ra -q"

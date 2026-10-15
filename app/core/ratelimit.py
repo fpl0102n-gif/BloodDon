@@ -227,6 +227,59 @@ class InMemoryRateLimiter(RateLimiter):
             self._storage.clear()
 
 
+class FakeRateLimiter(RateLimiter):
+    """Controllable test double for rate limiting."""
+
+    def __init__(self, allow_all: bool = True) -> None:
+        self.allow_all = allow_all
+        self.calls: list[tuple[str, int, int]] = []
+        self._denied_keys: set[str] = set()
+
+    def hit(self, key: str, limit: int, window_seconds: int) -> RateLimitResult:
+        self.calls.append((key, limit, window_seconds))
+        if not self.allow_all or key in self._denied_keys:
+            return RateLimitResult(
+                allowed=False,
+                limit=limit,
+                remaining=0,
+                reset_after=window_seconds,
+                retry_after=window_seconds,
+            )
+        return RateLimitResult(
+            allowed=True,
+            limit=limit,
+            remaining=max(0, limit - 1),
+            reset_after=window_seconds,
+            retry_after=0,
+        )
+
+    def check(self, key: str, limit: int, window_seconds: int) -> RateLimitResult:
+        allowed = self.allow_all and (key not in self._denied_keys)
+        return RateLimitResult(
+            allowed=allowed,
+            limit=limit,
+            remaining=limit if allowed else 0,
+            reset_after=window_seconds,
+            retry_after=0 if allowed else window_seconds,
+        )
+
+    def peek(self, key: str, limit: int, window_seconds: int) -> RateLimitResult:
+        """Alias for check."""
+        return self.check(key, limit, window_seconds)
+
+    def deny(self, key: str) -> None:
+        """Force the specified key to be rejected."""
+        self._denied_keys.add(key)
+
+    def reset(self, key: str) -> None:
+        self._denied_keys.discard(key)
+
+    def clear(self) -> None:
+        self.calls.clear()
+        self._denied_keys.clear()
+        self.allow_all = True
+
+
 # Default singleton instance
 _default_rate_limiter: RateLimiter = InMemoryRateLimiter()
 
@@ -236,7 +289,7 @@ def get_rate_limiter() -> RateLimiter:
     return _default_rate_limiter
 
 
-def set_rate_limiter(limiter: RateLimiter) -> None:
+def set_rate_limiter(limiter: RateLimiter | None = None) -> None:
     """Override the application rate limiter instance (used by test fixtures)."""
     global _default_rate_limiter
-    _default_rate_limiter = limiter
+    _default_rate_limiter = limiter if limiter is not None else InMemoryRateLimiter()

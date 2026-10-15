@@ -99,7 +99,7 @@ def get_clock() -> Clock:
     return _default_clock
 
 
-def set_clock(clock: Clock) -> None:
+def set_clock(clock: Clock | None = None) -> None:
     """Set the application clock instance (used by test fixtures)."""
     global _default_clock
-    _default_clock = clock
+    _default_clock = clock if clock is not None else SystemClock()
