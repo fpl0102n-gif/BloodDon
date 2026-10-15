@@ -82,9 +82,9 @@
 | **P1.8** | `main.py` app factory; `/health`, `/ready`; `/docs` only if `DOCS_ENABLED` | `main.py`, `api/routers/system.py` | `T-STRUCT-08` | ✅ **DONE** (`app/main.py` app factory and `app/api/routers/system.py` implemented with `/health` and `/ready`; verified by 6 tests confirming 200/503 health/ready states and 404 docs gating per T-STRUCT-08) |
 | **P1.9** | Shared schemas: `extra="forbid"` base, phone type (BR-GEN-01), blood type, pagination (limit ≤ 100) | `schemas/common.py` | `T-GEN-01`, `T-GEN-02`, `T-GEN-05` | ✅ **DONE** (`app/schemas/common.py` implemented with AppBaseModel [extra='forbid'], PhoneNumber normalizer [BR-GEN-01], NormalizedName [BR-GEN-02], BloodType enum [8 types], PaginationParams [limit<=100], and HeroesPaginationParams [limit<=200]; verified by 38 unit tests) |
 | **P1.10** | Test harness: `conftest`, transaction-per-test, role fixtures (skeleton), fakes for Clock/Storage/Mailer, pytest markers (`critical`, `br`, layers) | `tests/conftest.py` | — | ✅ **DONE** (`tests/conftest.py` implemented with `db_session` transaction-per-test isolation, fakes for Clock/Storage/Mailer/RateLimiter, role skeletons per `07` §3.1, leak sentinels, markers `critical`/`br`/layers; verified by 6 tests in `tests/unit/test_harness_fakes.py`) |
-| **P1.11** | **Architecture test** (dependency rules from `05` §5.2) | `tests/architecture/` | `T-STRUCT-04` | Deliberately bad import makes it fail |
+| **P1.11** | **Architecture test** (dependency rules from `05` §5.2) | `tests/architecture/` | `T-STRUCT-04` | ✅ **DONE** (`tests/architecture/test_dependency_rules.py` implemented with AST analysis enforcing layer dependencies, no circular imports, no direct commits, and verifying deliberately bad imports fail per T-STRUCT-04) |
 
-**Exit gate (M1):** `/health` and `/ready` work; prod-config checks pass; redaction test passes; architecture test enforced in CI.
+**Exit gate (M1):** ✅ **PASSED** (/health and /ready work [P1.8]; prod-config checks pass [P1.1]; redaction test passes [P1.5]; architecture test enforced in CI [P1.11]).
 
 ---
 
