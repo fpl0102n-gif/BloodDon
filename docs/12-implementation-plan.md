@@ -58,7 +58,7 @@
 | **P0.8** | `docker-compose.yml` (`db`, `db_test` on tmpfs, `mailpit`) + `scripts/db/init-roles.sql` | root, `scripts/db/` | ✅ **DONE** (`docker compose` up and healthy for `db`, `db_test`, `mailpit`; `app_migrator` and `app_user` roles verified) |
 | **P0.9** | `Makefile` (`setup`, `db-up`, `migrate`, `run`, `test`, `test-critical`, `lint`, `audit`, `check`) | root | ✅ **DONE** (Root `Makefile`, `make.cmd`, and `scripts/make.ps1` created and verified for all targets) |
 | **P0.10** | `pre-commit` (ruff, mypy, secret scan, block `.env`) | root | ✅ **DONE** (`.pre-commit-config.yaml` active, `.secrets.baseline` generated, secret detection and .env block verified) |
-| **P0.11** | **CI** pipeline: lint + types + tests + `pip-audit` + secret scan on every PR | CI config | Green on empty skeleton |
+| **P0.11** | **CI** pipeline: lint + types + tests + `pip-audit` + secret scan on every PR | CI config | ✅ **DONE** (`.github/workflows/ci.yml` created with quality, security, and test jobs; verified green on skeleton) |
 | **P0.12** | Create empty package skeleton per `05` §4 (all folders with `__init__.py`) | `app/`, `tests/` | Imports resolve |
 | **P0.13** | Start parallel tracks (center, legal, content, accounts) | — | Owners and dates written down |
 

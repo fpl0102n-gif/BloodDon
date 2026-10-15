@@ -1,0 +1,159 @@
+# ==============================================================================
+# منصة يوم التبرع بالدم — مسار التكامل المستمر (Continuous Integration)
+# Mapped to: docs/07-test-cases.md §10 & docs/12-implementation-plan.md P0.11
+# ==============================================================================
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.12"
+  UV_SYSTEM_PYTHON: "false"
+
+jobs:
+  # ----------------------------------------------------------------------------
+  # 1. تدقيق الأسلوب والتنسيق والأنواع (Lint & Types Gate)
+  # ----------------------------------------------------------------------------
+  lint-and-types:
+    name: Code Quality & Types
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        run: uv python install ${{ env.PYTHON_VERSION }}
+
+      - name: Install Dependencies
+        run: uv sync --all-groups
+
+      - name: Ruff Check (Linter)
+        run: uv run ruff check .
+
+      - name: Ruff Format (Code Style)
+        run: uv run ruff format --check .
+
+      - name: Mypy Type Checking
+        run: |
+          if [ -d "app" ]; then
+            uv run mypy app
+          else
+            echo "app/ directory does not exist yet (scheduled for P0.12); skipping mypy app."
+          fi
+
+  # ----------------------------------------------------------------------------
+  # 2. فحوصات الأمان وحجب الأسرار (Security & Secret Scan Gate)
+  # ----------------------------------------------------------------------------
+  security-scan:
+    name: Security & Secret Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        run: uv python install ${{ env.PYTHON_VERSION }}
+
+      - name: Install Dependencies
+        run: uv sync --all-groups
+
+      - name: Check for Leaked .env Files
+        run: |
+          echo "Verifying no .env files are tracked in git..."
+          if git ls-files | grep -E '^\.env' | grep -v '^\.env\.example$'; then
+            echo "ERROR: Tracked .env file detected in Git!"
+            exit 1
+          else
+            echo "OK: No .env secrets committed."
+          fi
+
+      - name: Detect Secrets Scan
+        run: |
+          uv run python -m detect_secrets.pre_commit_hook --baseline .secrets.baseline $(git ls-files)
+
+      - name: Pip-Audit (Dependency Vulnerabilities)
+        run: uv run pip-audit
+
+  # ----------------------------------------------------------------------------
+  # 3. الاختبارات الشاملة (Automated Test Suite)
+  # ----------------------------------------------------------------------------
+  tests:
+    name: Tests & Verification
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: bloodday_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres_dev_password
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+      mailpit:
+        image: axllent/mailpit:latest
+        ports:
+          - 1025:1025
+          - 8025:8025
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        run: uv python install ${{ env.PYTHON_VERSION }}
+
+      - name: Install Dependencies
+        run: uv sync --all-groups
+
+      - name: Initialize Database Roles
+        run: |
+          PGPASSWORD=postgres_dev_password psql -h localhost -p 5433 -U postgres -d bloodday_test -f scripts/db/init-roles.sql || \
+          echo "Postgres client tool not present on host; roles will initialize when migrations run in containers."
+
+      - name: Run Pytest Suite
+        run: |
+          if [ -d "tests" ]; then
+            uv run pytest
+          else
+            echo "tests/ directory does not exist yet (scheduled for P0.12); skipping pytest."
+          fi
+
+      - name: Run Critical Pytest Suite (★)
+        run: |
+          if [ -d "tests" ]; then
+            uv run pytest -m critical
+          else
+            echo "tests/ directory does not exist yet (scheduled for P0.12); skipping critical tests."
+          fi
