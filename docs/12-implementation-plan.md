@@ -72,7 +72,7 @@
 
 | ID | Task | Where | Tests first | Done when |
 |---|---|---|---|---|
-| **P1.1** | Settings with validation; **fail fast in `prod`** on missing or weak secrets | `core/config.py` | `T-STRUCT-08` (config part) | Boot in `prod` without secrets fails with a clear message |
+| **P1.1** | Settings with validation; **fail fast in `prod`** on missing or weak secrets | `core/config.py` | `T-STRUCT-08` (config part) | ✅ **DONE** (`app/core/config.py` implemented with Settings, validation, fail-fast production rules, check_config helper; 13 unit tests passing) |
 | **P1.2** | DB engine, session-per-request dependency, **naming convention**, pool settings | `core/database.py` | `/ready` test | `/ready` returns 200 only if DB is reachable |
 | **P1.3** | Domain errors base + code registry (start with generic codes) | `core/errors.py` | `T-STRUCT-03` (skeleton) | Raising an error yields the unified envelope |
 | **P1.4** | Error handlers: domain errors, validation (`unknown_field` vs `validation_error`), unexpected → 500 with `request_id` | `api/error_handlers.py` | `T-GEN-06` mechanism | Extra field → `422 unknown_field` |
