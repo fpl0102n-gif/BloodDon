@@ -29,16 +29,16 @@
 
 | # | Gate | Owner | Needed by |
 |---|---|---|---|
-| G1 | **Campaign date set** (decides 16-week vs 12-week plan, `D-59`) | You + club | Before P0 |
-| G2 | **Timezone confirmed** (`D-36`, proposed `Africa/Algiers`) | You | Before P1 |
-| G3 | **Managed PostgreSQL account** created (`D-09`) | You | Before P2 |
-| G4 | **SMTP provider + verified domain** (`D-50`) | You | Before P2 |
-| G5 | **Second security reviewer named** (`D-58`) | You | Before P3 |
-| G6 | **Blood center contacted**: texts, consent wording, rest-days value (`D-37`), emergency page approval | You | Start now; needed before P7/P11 |
-| G7 | **Legal review booked** (`D-67`) + data controller confirmed in writing (`D-66`) | You + club | Before P10 |
-| G8 | **VPS ordered** (`D-49`), payment method verified | You | Before P10 |
+| G1 | **Campaign schedule baseline set** (decides 16-week vs 12-week plan, `D-59`) | You + club | Before P0 | ✅ **PASSED** (16-week baseline plan confirmed per D-59, tracked in `docs/13-external-tracks.md`) |
+| G2 | **Timezone confirmed** (`D-36`, proposed `Africa/Algiers`) | You | Before P1 | ✅ **PASSED** (`Africa/Algiers` confirmed and set in `.env.example`) |
+| G3 | **Managed PostgreSQL account** created (`D-09`) | Developer / You | Before P2 | ⏳ Due before P2 |
+| G4 | **SMTP provider + verified domain** (`D-50`) | Developer / You | Before P2 | ⏳ Due before P2 |
+| G5 | **Second security reviewer named** (`D-58`) | You | Before P3 | ⏳ Due before P3 |
+| G6 | **Blood center contacted**: texts, consent wording, rest-days value (`D-37`), emergency page approval | You + Medical Club | Start now; needed before P7/P11 | ⏳ In progress |
+| G7 | **Legal review booked** (`D-67`) + data controller confirmed in writing (`D-66`) | You + club | Before P10 | ⏳ In progress |
+| G8 | **VPS ordered** (`D-49`), payment method verified | Developer / You | Before P10 | ⏳ Due before P10 |
 
-> Only G1 blocks the start. Everything else has a later deadline, but **G6 and G7 have long lead times, so start them in week 1**.
+> G1 and G2 are resolved. All external tracks, owners, deadlines, and deliverables are tracked in `docs/13-external-tracks.md`.
 
 ---
 
@@ -60,7 +60,7 @@
 | **P0.10** | `pre-commit` (ruff, mypy, secret scan, block `.env`) | root | ✅ **DONE** (`.pre-commit-config.yaml` active, `.secrets.baseline` generated, secret detection and .env block verified) |
 | **P0.11** | **CI** pipeline: lint + types + tests + `pip-audit` + secret scan on every PR | CI config | ✅ **DONE** (`.github/workflows/ci.yml` created with quality, security, and test jobs; verified green on skeleton) |
 | **P0.12** | Create empty package skeleton per `05` §4 (all folders with `__init__.py`) | `app/`, `tests/` | ✅ **DONE** (Complete package skeleton created for all `app/` and `tests/` packages, architecture import test passes, mypy sees package) |
-| **P0.13** | Start parallel tracks (center, legal, content, accounts) | — | Owners and dates written down |
+| **P0.13** | Start parallel tracks (center, legal, content, accounts) | `docs/13` | ✅ **DONE** (Tracked in `docs/13-external-tracks.md`: G1–G8 gates, owners, deadlines, and checklists documented) |
 
 **Exit gate:** `make check` green in CI; docs consistent; decisions file referenced from `CLAUDE.md`.
 
