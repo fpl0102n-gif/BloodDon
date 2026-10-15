@@ -317,7 +317,7 @@ api/routers ──┘       │
 3. deps           : require(donor:create)  ← صلاحية الدور + MFA إن لزم
 4. schemas        : يتحقق من الجسم (حقول زائدة تُرفض، الهاتف يُطبَّع)
 5. router         : يستدعي DonorService.create(user, data)
-6. service        : 
+6. service        :
                     ├─ policy: النطاق S (موقعه) والحالة L (حملة جارية)
                     ├─ قواعد الموافقات (06): الهاتف يتطلب موافقة، إلخ
                     ├─ idempotency: معرّف العميل

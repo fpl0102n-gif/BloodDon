@@ -1,0 +1,83 @@
+# ==============================================================================
+# منصة يوم التبرع بالدم — خطافات ما قبل الإيداع (.pre-commit-config.yaml)
+# Mapped to: docs/08-setup-env.md §9.2 & docs/12-implementation-plan.md P0.10
+# ==============================================================================
+
+default_install_hook_types: [pre-commit]
+default_stages: [pre-commit]
+fail_fast: true
+
+repos:
+  # ----------------------------------------------------------------------------
+  # 1. فحوصات بنية وتنسيق الملفات العامة (pre-commit-hooks)
+  # ----------------------------------------------------------------------------
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: check-yaml
+        args: [--unsafe]
+      - id: check-toml
+      - id: check-json
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: ['--maxkb=500']
+
+  # ----------------------------------------------------------------------------
+  # 2. الحماية الصارمة من تسريب ملفات البيئة والأسرار (.env)
+  # ----------------------------------------------------------------------------
+  - repo: local
+    hooks:
+      - id: block-env-files
+        name: Block committing .env files
+        description: Prevents accidental commit of real secrets in .env files
+        entry: Environment configuration files (.env, .env.*) must never be committed. Only .env.example is allowed.
+        language: fail
+        files: '^\.env(\..+)?$'
+        exclude: '^\.env\.example$'
+
+  # ----------------------------------------------------------------------------
+  # 3. فحص الأسرار والمفاتيح المشفرة (detect-secrets)
+  # ----------------------------------------------------------------------------
+  - repo: local
+    hooks:
+      - id: detect-secrets
+        name: detect-secrets
+        description: Detect and block hardcoded secrets, API tokens, and private keys
+        entry: uv run python -m detect_secrets.pre_commit_hook --baseline .secrets.baseline
+        language: system
+        pass_filenames: true
+
+  # ----------------------------------------------------------------------------
+  # 4. التدقيق والتنسيق الموحد للكود (Ruff)
+  # ----------------------------------------------------------------------------
+  - repo: local
+    hooks:
+      - id: ruff-check
+        name: ruff check
+        description: Run ruff linting rules and autofixes
+        entry: uv run python -m ruff check --fix
+        language: system
+        types_or: [python]
+        pass_filenames: true
+      - id: ruff-format
+        name: ruff format
+        description: Run ruff code formatter
+        entry: uv run python -m ruff format
+        language: system
+        types_or: [python]
+        pass_filenames: true
+
+  # ----------------------------------------------------------------------------
+  # 5. تدقيق الأنواع الصارمة (Mypy)
+  # ----------------------------------------------------------------------------
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy type check
+        description: Run strict type checking with project dependencies
+        entry: uv run python -c "import sys, pathlib, subprocess; sys.exit(subprocess.call(['uv', 'run', 'python', '-m', 'mypy', 'app']) if pathlib.Path('app').exists() else 0)"
+        language: system
+        types_or: [python]
+        pass_filenames: false
