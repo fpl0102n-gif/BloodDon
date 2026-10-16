@@ -61,6 +61,21 @@ class UserRepository:
         user.password_hash = new_hash
         self.db.flush()
 
+    def activate_user(self, user: User, password_hash: str) -> None:
+        """Activate user account and set initial password hash from accepted invitation."""
+        user.password_hash = password_hash
+        user.is_active = True
+        user.failed_login_count = 0
+        user.locked_until = None
+        self.db.flush()
+
+    def reset_password(self, user: User, password_hash: str) -> None:
+        """Update user password hash and clear any active lockout state."""
+        user.password_hash = password_hash
+        user.failed_login_count = 0
+        user.locked_until = None
+        self.db.flush()
+
     def unlock(self, user_id: uuid.UUID) -> bool:
         """Administratively clear account lockout and failed attempt counters."""
         stmt = (

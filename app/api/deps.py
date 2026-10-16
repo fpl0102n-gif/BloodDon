@@ -20,8 +20,10 @@ from app.core.clock import Clock, get_clock
 from app.core.config import Settings, get_settings
 from app.core.database import get_db
 from app.core.errors import CsrfFailedError, NotAuthenticatedError
+from app.mail import get_mailer
 from app.models.user import AuthSession, User
 from app.repositories.sessions import SessionRepository
+from app.repositories.user_tokens import UserTokenRepository
 from app.repositories.users import UserRepository
 from app.services.auth import AuthService
 from app.services.sessions import SessionService
@@ -179,8 +181,17 @@ def get_auth_service(
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> AuthService:
     """Provide AuthService instance bound to request DB session and SessionService."""
-    repo = UserRepository(db)
-    return AuthService(repo, session_service, clock=clock, settings=settings)
+    user_repo = UserRepository(db)
+    token_repo = UserTokenRepository(db)
+    mailer = get_mailer()
+    return AuthService(
+        user_repo,
+        session_service,
+        token_repo=token_repo,
+        mailer=mailer,
+        clock=clock,
+        settings=settings,
+    )
 
 
 def get_current_session_and_user(
