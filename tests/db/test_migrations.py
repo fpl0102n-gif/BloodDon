@@ -45,15 +45,16 @@ def test_t_struct_06_migration_chain_continuity(alembic_config: Config) -> None:
     """T-STRUCT-06: Verify linear, unbroken migration chain from 001 to 006."""
     script_dir = ScriptDirectory.from_config(alembic_config)
     head_rev = script_dir.get_current_head()
-    assert head_rev == "006", f"Expected head revision to be '006', got '{head_rev}'"
+    assert head_rev == "008", f"Expected head revision to be '008', got '{head_rev}'"
 
     revisions = list(script_dir.walk_revisions())
     rev_ids = [r.revision for r in revisions]
-    expected_order = ["006", "005", "004", "003", "002", "001"]
+    expected_order = ["008", "006", "005", "004", "003", "002", "001"]
     assert rev_ids == expected_order, f"Unexpected migration order: {rev_ids}"
 
     # Verify linear down_revision chain
     expected_down = {
+        "008": "006",
         "006": "005",
         "005": "004",
         "004": "003",
@@ -100,15 +101,17 @@ def test_t_struct_06_offline_sql_generation(alembic_config: Config) -> None:
     assert "CREATE TABLE audit_log" in sql_upgrade
     assert "CREATE TABLE phone_reveal_log" in sql_upgrade
     assert "CREATE TABLE rate_limit_events" in sql_upgrade
+    assert "REVOKE UPDATE, DELETE, TRUNCATE ON TABLE audit_log FROM app_user" in sql_upgrade
 
     # Test downgrade static SQL generation
     buf_downgrade = io.StringIO()
     cfg_downgrade = _get_alembic_config()
 
     with contextlib.redirect_stdout(buf_downgrade):
-        command.downgrade(cfg_downgrade, "006:base", sql=True)
+        command.downgrade(cfg_downgrade, "008:base", sql=True)
 
     sql_downgrade = buf_downgrade.getvalue()
+    assert "GRANT UPDATE, DELETE, TRUNCATE ON TABLE audit_log TO app_user" in sql_downgrade
     assert "DROP TABLE rate_limit_events" in sql_downgrade
     assert "DROP TABLE phone_reveal_log" in sql_downgrade
     assert "DROP TABLE audit_log" in sql_downgrade
