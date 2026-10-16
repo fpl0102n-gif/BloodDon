@@ -114,7 +114,7 @@
 
 | ID | Task | Where | Tests first | Done when |
 |---|---|---|---|---|
-| **P3.1** | Password hashing (argon2id), policy (10–128 chars, common-password list), rehash on login | `core/security.py` | `T-AUTH-03`, `T-AUTH-04` | Hash format verified; no password in logs |
+| **P3.1** | Password hashing (argon2id), policy (10–128 chars, common-password list), rehash on login | `core/security.py` | `T-AUTH-03`, `T-AUTH-04` | ✅ **DONE** (argon2id verified, zero password in logs, 12 unit tests passing) |
 | **P3.2** | Session model/service: random ID, **hashed storage**, idle/absolute timeouts, revocation, new session per login | `services/sessions.py` | `T-AUTH-11`, `T-AUTH-12` | Fixation test passes |
 | **P3.3** | Login flow: uniform error, dummy verify when user missing, lockout (5 → 15 min, doubling, cap 1 h), unlock | `services/auth.py` | `T-AUTH-05`, `T-AUTH-06` | All failure causes identical on the wire |
 | **P3.4** | Cookie handling (`HttpOnly`, `Secure`, `SameSite=Lax`, `__Host-`) + CSRF (token + Origin) | `api/deps.py` | `T-AUTH-18`, `T-AUTH-19` | Missing token → `csrf_failed` |
