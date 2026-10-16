@@ -9,6 +9,7 @@ import typer
 
 from app.cli.migrate import check_migrations_cmd
 from app.cli.seed import seed_cmd
+from app.cli.verify_db import verify_database_cmd
 from app.core.config import check_config
 
 cli_app = typer.Typer(
@@ -20,6 +21,8 @@ cli_app = typer.Typer(
 # Register CLI commands
 cli_app.command(name="seed")(seed_cmd)
 cli_app.command(name="check-migrations")(check_migrations_cmd)
+cli_app.command(name="verify-database")(verify_database_cmd)
+cli_app.command(name="verify-gate3")(verify_database_cmd)
 
 
 @cli_app.command(name="check-config")
