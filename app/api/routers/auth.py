@@ -19,6 +19,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, Request, Response, status
 
 from app.api.deps import (
+    check_rate_limit,
     clear_session_cookie,
     clear_session_reauth,
     generate_csrf_token,
@@ -78,6 +79,7 @@ def get_csrf(
 @router.post(
     "/login",
     response_model=LoginOut,
+    dependencies=[Depends(check_rate_limit("login", limit=10, window_seconds=900))],
     summary="User login",
     description="Authenticate staff credentials, set hardened session cookie, and check MFA status.",
 )
@@ -228,6 +230,7 @@ def logout_all(
 @router.post(
     "/password/forgot",
     status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(check_rate_limit("password_forgot", limit=5, window_seconds=3600))],
     summary="Request password reset",
     description="Request a single-use password reset link via email (uniform response for all emails).",
 )
@@ -261,6 +264,7 @@ def reset_password(
 @router.post(
     "/invite/accept",
     response_model=AcceptInviteOut,
+    dependencies=[Depends(check_rate_limit("invite_accept", limit=10, window_seconds=3600))],
     summary="Accept staff invitation",
     description="Accept invitation token and configure initial account password to activate staff member.",
 )

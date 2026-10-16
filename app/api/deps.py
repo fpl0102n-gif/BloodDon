@@ -26,7 +26,14 @@ from app.core.errors import (
     ForbiddenError,
     MfaRequiredError,
     NotAuthenticatedError,
+    RateLimitedError,
     ReauthRequiredError,
+)
+from app.core.ratelimit import (
+    RateLimiter,
+    RateLimitResult,
+    get_rate_limiter,
+    resolve_client_ip_hash,
 )
 from app.mail import get_mailer
 from app.models.user import AuthSession, User
@@ -368,5 +375,54 @@ def require(
         request.state.user = user
         request.state.session = session
         return user
+
+    return dependency
+
+
+# ==============================================================================
+# 6. Declarative Rate Limiting Dependency Factory (BR-RATE-01..09 / docs/04 §180)
+# ==============================================================================
+
+
+def get_rate_limiter_dep() -> RateLimiter:
+    """FastAPI dependency yielding current application RateLimiter instance."""
+    return get_rate_limiter()
+
+
+def get_client_ip_hash(request: Request) -> str:
+    """Retrieve or compute salted IP hash from request state or client connection."""
+    ip_hash = getattr(request.state, "client_ip_hash", None)
+    if not ip_hash:
+        ip_hash = resolve_client_ip_hash(request)
+        request.state.client_ip_hash = ip_hash
+    return ip_hash
+
+
+def check_rate_limit(
+    key_prefix: str,
+    limit: int,
+    window_seconds: int,
+) -> Callable[..., Any]:
+    """Declarative dependency factory enforcing sliding-window rate limits per IP.
+
+    Per BR-RATE-01..09 and docs/04 §180-§190:
+    - Increments hit counter for key `rate:{key_prefix}:{ip_hash}`.
+    - If limit is exceeded: raises RateLimitedError with Retry-After header.
+    - Handled centrally to return HTTP 429 with error code `rate_limited`.
+    """
+
+    def dependency(
+        request: Request,
+        rate_limiter: Annotated[RateLimiter, Depends(get_rate_limiter_dep)],
+    ) -> RateLimitResult:
+        ip_hash = get_client_ip_hash(request)
+        rate_key = f"rate:{key_prefix}:{ip_hash}"
+        res = rate_limiter.hit(rate_key, limit=limit, window_seconds=window_seconds)
+        if not res.allowed:
+            raise RateLimitedError(
+                "Too many requests. Please try again later.",
+                retry_after=res.retry_after,
+            )
+        return res
 
     return dependency

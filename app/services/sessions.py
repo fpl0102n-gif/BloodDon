@@ -8,6 +8,7 @@ Per:
 
 import uuid
 from datetime import datetime, timedelta
+from typing import ClassVar
 
 from app.core.clock import Clock, get_clock
 from app.core.config import Settings, get_settings
@@ -19,6 +20,13 @@ from app.repositories.sessions import SessionRepository
 
 class SessionService:
     """Service implementing server-side session lifecycle, timeouts, and revocations."""
+
+    _revoked_session_hashes: ClassVar[set[str]] = set()
+
+    @classmethod
+    def clear_revocation_cache(cls) -> None:
+        """Clear in-memory revocation cache (used in test cleanups)."""
+        cls._revoked_session_hashes.clear()
 
     def __init__(
         self,
@@ -88,6 +96,9 @@ class SessionService:
             raise NotAuthenticatedError("Missing or empty session token.")
 
         token_hash = hash_token(raw_token)
+        if token_hash in self._revoked_session_hashes:
+            raise SessionExpiredError("Session has been revoked.")
+
         session = self.repo.get_by_id(token_hash)
 
         if session is None:
@@ -126,10 +137,12 @@ class SessionService:
     def revoke_session(self, raw_token: str) -> None:
         """Revoke a single session by raw token (e.g. single-device logout)."""
         token_hash = hash_token(raw_token)
+        self._revoked_session_hashes.add(token_hash)
         self.repo.revoke(token_hash, self.clock.now())
 
     def revoke_session_by_hash(self, session_id_hash: str) -> None:
         """Revoke a single session by its stored SHA-256 ID hash."""
+        self._revoked_session_hashes.add(session_id_hash)
         self.repo.revoke(session_id_hash, self.clock.now())
 
     def revoke_all_user_sessions(

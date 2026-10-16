@@ -21,9 +21,16 @@ from sqlalchemy.orm import Session
 from app.core.clock import FakeClock, set_clock
 from app.core.config import get_settings
 from app.core.database import check_database_connection, create_db_engine, get_db
-from app.core.ratelimit import FakeRateLimiter, InMemoryRateLimiter, set_rate_limiter
+from app.core.ratelimit import (
+    FakeRateLimiter,
+    InMemoryRateLimiter,
+    get_rate_limiter,
+    set_rate_limiter,
+)
 from app.mail import FakeMailer, set_mailer
 from app.main import create_app
+from app.services.mfa import MfaService
+from app.services.sessions import SessionService
 from app.storage import FakeStorage, set_storage
 
 # ==============================================================================
@@ -84,6 +91,20 @@ def fake_rate_limiter() -> Generator[FakeRateLimiter, None, None]:
         yield limiter
     finally:
         set_rate_limiter(InMemoryRateLimiter())
+
+
+@pytest.fixture(autouse=True)
+def _auto_clean_rate_limiter() -> Generator[None, None, None]:
+    """Ensure rate limiter storage, session revocation cache, and interim attempts are cleared before and after each test."""
+    get_rate_limiter().clear()
+    SessionService.clear_revocation_cache()
+    MfaService.clear_all_interim_attempts()
+    try:
+        yield
+    finally:
+        get_rate_limiter().clear()
+        SessionService.clear_revocation_cache()
+        MfaService.clear_all_interim_attempts()
 
 
 # ==============================================================================

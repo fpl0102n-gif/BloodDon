@@ -12,7 +12,7 @@ import secrets
 import threading
 import uuid
 from dataclasses import dataclass
-from typing import Final
+from typing import ClassVar, Final
 
 import pyotp
 
@@ -53,6 +53,10 @@ class MfaSetupResult:
 class MfaService:
     """Domain service managing TOTP two-factor authentication and backup recovery codes."""
 
+    # Thread-safe shared counter tracking failed attempts per interim session ID across requests
+    _interim_attempts: ClassVar[dict[str, int]] = {}
+    _lock: ClassVar[threading.Lock] = threading.Lock()
+
     def __init__(
         self,
         user_repo: UserRepository,
@@ -68,23 +72,27 @@ class MfaService:
         self.clock = clock or get_clock()
         self.settings = settings or get_settings()
 
-        # Thread-safe in-memory counter tracking failed attempts per interim session ID
-        self._interim_attempts: dict[str, int] = {}
-        self._lock = threading.Lock()
+    @classmethod
+    def _get_interim_attempts(cls, session_id: str) -> int:
+        with cls._lock:
+            return cls._interim_attempts.get(session_id, 0)
 
-    def _get_interim_attempts(self, session_id: str) -> int:
-        with self._lock:
-            return self._interim_attempts.get(session_id, 0)
-
-    def _increment_interim_attempts(self, session_id: str) -> int:
-        with self._lock:
-            current = self._interim_attempts.get(session_id, 0) + 1
-            self._interim_attempts[session_id] = current
+    @classmethod
+    def _increment_interim_attempts(cls, session_id: str) -> int:
+        with cls._lock:
+            current = cls._interim_attempts.get(session_id, 0) + 1
+            cls._interim_attempts[session_id] = current
             return current
 
-    def _clear_interim_attempts(self, session_id: str) -> None:
-        with self._lock:
-            self._interim_attempts.pop(session_id, None)
+    @classmethod
+    def _clear_interim_attempts(cls, session_id: str) -> None:
+        with cls._lock:
+            cls._interim_attempts.pop(session_id, None)
+
+    @classmethod
+    def clear_all_interim_attempts(cls) -> None:
+        with cls._lock:
+            cls._interim_attempts.clear()
 
     def _handle_interim_failure(self, session: AuthSession | None) -> None:
         """Record a failed MFA attempt on an interim session and revoke upon 5 failures (BR-AUTH-09 / T-AUTH-09-d)."""
