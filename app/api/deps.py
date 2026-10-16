@@ -12,7 +12,7 @@ and docs/03-auth-permissions.md §8.2, §8.5:
 import hashlib
 import hmac
 from collections.abc import Callable
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Annotated, Any
 
 from fastapi import Depends, Request, Response
@@ -36,10 +36,12 @@ from app.policy import (
     get_required_conditions,
     is_permission_granted,
 )
+from app.repositories.mfa import MfaRecoveryCodeRepository
 from app.repositories.sessions import SessionRepository
 from app.repositories.user_tokens import UserTokenRepository
 from app.repositories.users import UserRepository
 from app.services.auth import AuthService
+from app.services.mfa import MfaService
 from app.services.sessions import SessionService
 
 # Safe idempotent HTTP methods that do not modify server state
@@ -208,6 +210,24 @@ def get_auth_service(
     )
 
 
+def get_mfa_service(
+    db: Annotated[Session, Depends(get_db)],
+    session_service: Annotated[SessionService, Depends(get_session_service)],
+    clock: Annotated[Clock, Depends(get_clock)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> MfaService:
+    """Provide MfaService instance bound to request DB session, repositories, and Clock."""
+    user_repo = UserRepository(db)
+    recovery_repo = MfaRecoveryCodeRepository(db)
+    return MfaService(
+        user_repo,
+        recovery_repo,
+        session_service,
+        clock=clock,
+        settings=settings,
+    )
+
+
 def get_current_session_and_user(
     session_token: Annotated[str | None, Depends(get_session_token)],
     session_service: Annotated[SessionService, Depends(get_session_service)],
@@ -270,6 +290,10 @@ def is_session_reauth_valid(
 ) -> bool:
     """Check if session has a valid step-up confirmation within the timeout window."""
     last_reauth = get_session_reauth_time(session)
+    if now.tzinfo is not None and last_reauth.tzinfo is None:
+        last_reauth = last_reauth.replace(tzinfo=UTC)
+    elif now.tzinfo is None and last_reauth.tzinfo is not None:
+        now = now.replace(tzinfo=UTC)
     elapsed = (now - last_reauth).total_seconds()
     return elapsed <= timeout_seconds
 

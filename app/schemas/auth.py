@@ -136,3 +136,76 @@ class MfaStatusOut(AppBaseModel):
 
     totp_enabled: bool = Field(..., description="Whether MFA is enabled on the account")
     recovery_codes_remaining: int = Field(..., ge=0, description="Number of unused backup codes")
+
+
+class LoginIn(AppBaseModel):
+    """Payload for user authentication."""
+
+    email: str = Field(..., min_length=3, max_length=255, description="Account email address")
+    password: str = Field(..., min_length=1, max_length=128, description="Account password")
+
+
+class UserAuthOut(AppBaseModel):
+    """Authenticated user info returned upon login."""
+
+    id: uuid.UUID
+    email: str
+    full_name: str
+    role: str
+    site_id: uuid.UUID | None = None
+
+
+class LoginOut(AppBaseModel):
+    """Response returned upon login attempt."""
+
+    user: UserAuthOut
+    mfa_required: bool
+
+
+class CsrfOut(AppBaseModel):
+    """Response returned by CSRF token retrieval endpoint."""
+
+    csrf_token: str
+
+
+class ReauthIn(AppBaseModel):
+    """Payload for password step-up confirmation."""
+
+    password: str = Field(..., min_length=1, max_length=128, description="Current account password")
+    code: str | None = Field(
+        default=None,
+        min_length=6,
+        max_length=6,
+        pattern=r"^\d{6}$",
+        description="TOTP code (mandatory for admin)",
+    )
+
+
+class ChangePasswordIn(AppBaseModel):
+    """Payload for authenticated password change in /me/password."""
+
+    current_password: str = Field(..., min_length=1, max_length=128, description="Current password")
+    new_password: str = Field(
+        ..., min_length=10, max_length=128, description="New password complying with policy"
+    )
+
+
+class MeOut(AppBaseModel):
+    """Response returned by /me endpoint containing caller profile details."""
+
+    id: uuid.UUID
+    email: str
+    full_name: str
+    role: str
+    site_id: uuid.UUID | None = None
+    mfa_enabled: bool
+    must_change_password: bool
+
+
+class AcceptInviteOut(AppBaseModel):
+    """Response returned when invitation is accepted and account activated."""
+
+    id: uuid.UUID
+    email: str
+    role: str
+    status: str = "activated"

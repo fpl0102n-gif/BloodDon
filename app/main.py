@@ -12,6 +12,8 @@ from fastapi import Depends, FastAPI
 from app.api.deps import verify_csrf
 from app.api.error_handlers import register_error_handlers
 from app.api.middleware import register_middleware
+from app.api.routers.auth import router as auth_router
+from app.api.routers.me import router as me_router
 from app.api.routers.system import router as system_router
 from app.core.config import Settings, get_settings
 from app.core.logging import setup_logging
@@ -47,6 +49,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     # 5. Register core system routers (/health, /ready)
     app.include_router(system_router)
+
+    # 6. Register authentication and personal account routers (/api/v1 and root)
+    app.include_router(auth_router, prefix="/api/v1")
+    app.include_router(me_router, prefix="/api/v1")
+    app.include_router(auth_router)
+    app.include_router(me_router)
 
     return app
 

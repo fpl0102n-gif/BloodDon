@@ -362,3 +362,41 @@ class AuthService:
         self.session_service.revoke_all_user_sessions(user.id)
 
         return user
+
+    def change_password(
+        self,
+        user_id: uuid.UUID,
+        current_password: str,
+        new_password: str,
+        *,
+        current_raw_token: str | None = None,
+    ) -> User:
+        """Change authenticated user password, verifying current password and revoking other sessions (BR-AUTH-16 / BR-AUTH-13).
+
+        Per:
+        - BR-AUTH-16: User verifies current password, sets new password complying with policy.
+        - BR-AUTH-13: Invalidates all other active sessions for this user (current session preserved).
+        """
+        user = self.user_repo.get_by_id(user_id)
+        if user is None:
+            raise NotFoundError("User not found.")
+
+        if not user.password_hash or not verify_password(current_password, user.password_hash):
+            raise InvalidCredentialsError("Current password is incorrect.")
+
+        validate_password(
+            new_password,
+            user_email=user.email,
+            user_name=user.full_name,
+        )
+
+        new_hash = hash_password(new_password)
+        self.user_repo.update_password_hash(user, new_hash)
+
+        # Invalidate all OTHER sessions for this user (BR-AUTH-13 / BR-AUTH-16)
+        self.session_service.revoke_all_user_sessions(
+            user.id,
+            except_raw_token=current_raw_token,
+        )
+
+        return user
