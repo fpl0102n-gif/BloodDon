@@ -35,7 +35,7 @@ repos:
         entry: Environment configuration files (.env, .env.*) must never be committed. Only .env.example is allowed.
         language: fail
         files: '^\.env(\..+)?$'
-        exclude: '^\.env\.example$'
+        exclude: '^\.env(\..+)?\.example$'
 
   # ----------------------------------------------------------------------------
   # 3. فحص الأسرار والمفاتيح المشفرة (detect-secrets)

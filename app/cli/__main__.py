@@ -7,6 +7,7 @@ Implements CLI commands specified in CLAUDE.md §4:
 
 import typer
 
+from app.cli.migrate import check_migrations_cmd
 from app.cli.seed import seed_cmd
 from app.core.config import check_config
 
@@ -16,8 +17,9 @@ cli_app = typer.Typer(
     no_args_is_help=True,
 )
 
-# Register seed command
+# Register CLI commands
 cli_app.command(name="seed")(seed_cmd)
+cli_app.command(name="check-migrations")(check_migrations_cmd)
 
 
 @cli_app.command(name="check-config")

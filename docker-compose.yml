@@ -60,6 +60,30 @@ services:
       - "8025:8025"  # واجهة الويب لمشاهدة رسائل الدعوة
       - "1025:1025"  # خادم SMTP المحلي لالتقاط الرسائل
 
+  # ----------------------------------------------------------------------------
+  # 4. قاعدة بيانات بيئة التجريب (Staging Database - D-57)
+  # ----------------------------------------------------------------------------
+  db_staging:
+    image: postgres:16
+    container_name: blood_db_staging
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: bloodday_staging
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres_staging_password
+    ports:
+      - "5434:5432"
+    volumes:
+      - db_staging_data:/var/lib/postgresql/data
+      - ./scripts/db/init-roles.sql:/docker-entrypoint-initdb.d/10-roles.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d bloodday_staging"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
 volumes:
   db_data:
     name: blood_db_data
+  db_staging_data:
+    name: blood_db_staging_data

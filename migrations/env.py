@@ -23,7 +23,7 @@ def get_url() -> str:
     url = config.get_main_option("sqlalchemy.url")
     if not url or url.strip() == "" or url.startswith("driver://"):
         settings = get_settings()
-        url = settings.database_url
+        url = settings.migration_database_url or settings.database_url
     return url
 
 
