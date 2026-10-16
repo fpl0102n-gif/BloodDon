@@ -255,3 +255,26 @@ def test_generate_secure_token_and_recovery_code() -> None:
     assert len(code2) == 10
     assert code1.isalnum()
     assert code1 != code2
+
+
+@pytest.mark.unit
+@pytest.mark.br("BR-GEN-09")
+def test_totp_secret_encryption_and_decryption() -> None:
+    """Verify Fernet encryption and decryption of TOTP base32 secret (BR-GEN-09 / docs/03 §7)."""
+    from app.core.security import decrypt_totp_secret, encrypt_totp_secret
+
+    test_key = "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY="  # pragma: allowlist secret
+    secret = "JBSWY3DPEHPK3PXP"  # pragma: allowlist secret
+
+    encrypted = encrypt_totp_secret(secret, test_key)
+    assert encrypted != secret
+    assert isinstance(encrypted, str)
+
+    decrypted = decrypt_totp_secret(encrypted, test_key)
+    assert decrypted == secret
+
+    # Verify fallback handling for dev/test placeholder dummy key
+    dummy_key = "dummy_fernet_key_base64_must_be_32_bytes_safe_url="
+    enc_dummy = encrypt_totp_secret(secret, dummy_key)
+    dec_dummy = decrypt_totp_secret(enc_dummy, dummy_key)
+    assert dec_dummy == secret

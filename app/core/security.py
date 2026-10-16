@@ -6,6 +6,7 @@ Implements P3.1 per:
 - docs/07-test-cases.md §5.10 (T-AUTH-03, T-AUTH-04, T-AUTH-05-b).
 """
 
+import base64
 import contextlib
 import hashlib
 import re
@@ -18,6 +19,7 @@ from argon2.exceptions import (
     VerificationError,
     VerifyMismatchError,
 )
+from cryptography.fernet import Fernet
 
 from app.core.errors import ValidationError
 
@@ -199,3 +201,30 @@ def generate_recovery_code(length: int = 10) -> str:
     """Generate unambiguous 10-character alphanumeric MFA backup recovery code (BR-AUTH-10)."""
     alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"  # pragma: allowlist secret
     return "".join(secrets.choice(alphabet) for _ in range(length))
+
+
+# ==============================================================================
+# Fernet Symmetric Encryption for Sensitive Secrets at Rest (BR-GEN-09 / D-15)
+# ==============================================================================
+
+# Deterministic 32-byte fallback key for dev/test when default placeholder key is used
+_DUMMY_FERNET_KEY_FALLBACK: Final[bytes] = base64.urlsafe_b64encode(b"0" * 32)
+
+
+def get_fernet_cipher(fernet_key: str) -> Fernet:
+    """Return configured Fernet cipher instance, safely supporting dev/test dummy key."""
+    if fernet_key == "dummy_fernet_key_base64_must_be_32_bytes_safe_url=":
+        return Fernet(_DUMMY_FERNET_KEY_FALLBACK)
+    return Fernet(fernet_key.encode("ascii"))
+
+
+def encrypt_totp_secret(secret: str, fernet_key: str) -> str:
+    """Encrypt TOTP base32 secret with Fernet key for database storage (BR-GEN-09 / docs/03 §7)."""
+    cipher = get_fernet_cipher(fernet_key)
+    return cipher.encrypt(secret.encode("utf-8")).decode("ascii")
+
+
+def decrypt_totp_secret(encrypted_secret: str, fernet_key: str) -> str:
+    """Decrypt encrypted TOTP secret using Fernet key."""
+    cipher = get_fernet_cipher(fernet_key)
+    return cipher.decrypt(encrypted_secret.encode("ascii")).decode("utf-8")

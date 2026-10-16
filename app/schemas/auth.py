@@ -91,3 +91,48 @@ class InviteUserOut(AppBaseModel):
     site_id: uuid.UUID | None = None
     invite_url: str | None = None
     email_sent: bool
+
+
+class MfaSetupOut(AppBaseModel):
+    """Response returned when initiating MFA enrollment."""
+
+    secret: str = Field(..., description="Base32 TOTP secret for manual entry")
+    provisioning_uri: str = Field(..., description="otpauth:// URI for QR code generation")
+    recovery_codes: list[str] = Field(..., description="8 backup recovery codes displayed once")
+
+
+class MfaConfirmIn(AppBaseModel):
+    """Payload to confirm TOTP setup with a first 6-digit code."""
+
+    code: str = Field(
+        ...,
+        min_length=6,
+        max_length=6,
+        pattern=r"^\d{6}$",
+        description="6-digit verification code from authenticator app",
+    )
+
+
+class MfaVerifyIn(AppBaseModel):
+    """Payload for verifying second factor during login."""
+
+    code: str | None = Field(
+        default=None,
+        min_length=6,
+        max_length=6,
+        pattern=r"^\d{6}$",
+        description="6-digit TOTP code",
+    )
+    recovery_code: str | None = Field(
+        default=None,
+        min_length=8,
+        max_length=16,
+        description="Backup recovery code if authenticator app is unavailable",
+    )
+
+
+class MfaStatusOut(AppBaseModel):
+    """User MFA status details."""
+
+    totp_enabled: bool = Field(..., description="Whether MFA is enabled on the account")
+    recovery_codes_remaining: int = Field(..., ge=0, description="Number of unused backup codes")
