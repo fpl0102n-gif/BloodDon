@@ -1,0 +1,44 @@
+"""Unified command-line interface entry point.
+
+Implements CLI commands specified in CLAUDE.md §4:
+- seed: Database seeding with reference dataset (refuses in prod per T-STRUCT-09).
+- check-config: Production and environment configuration check.
+"""
+
+import typer
+
+from app.cli.seed import seed_cmd
+from app.core.config import check_config
+
+cli_app = typer.Typer(
+    name="bloodday",
+    help="Blood Donation Platform Administrative CLI",
+    no_args_is_help=True,
+)
+
+# Register seed command
+cli_app.command(name="seed")(seed_cmd)
+
+
+@cli_app.command(name="check-config")
+def check_config_cmd() -> None:
+    """Validate active configuration settings and secrets against environment requirements."""
+    try:
+        check_config()
+        typer.secho(
+            "Configuration check PASSED: all required settings and secrets are valid.",
+            fg=typer.colors.GREEN,
+            bold=True,
+        )
+    except Exception as exc:
+        typer.secho(f"Configuration check FAILED: {exc}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=1) from exc
+
+
+def main() -> None:
+    """Main CLI execution entry point."""
+    cli_app()
+
+
+if __name__ == "__main__":
+    main()
