@@ -133,6 +133,15 @@ def db_session() -> Generator[Session, None, None]:
 
 
 @pytest.fixture
+def isolated_db(db_session: Session) -> Session:
+    """Ensure database schema is created inside the active test transaction."""
+    from app.models.base import Base
+
+    Base.metadata.create_all(bind=db_session.connection())
+    return db_session
+
+
+@pytest.fixture
 def test_app(db_session: Session) -> Generator[FastAPI, None, None]:
     """Provide FastAPI application with get_db overridden to the test transaction."""
     app = create_app()
