@@ -376,7 +376,37 @@ def require(
         request.state.session = session
         return user
 
+    dependency.__required_permission__ = permission  # type: ignore[attr-defined]
+    dependency.__require_reauth__ = require_reauth  # type: ignore[attr-defined]
     return dependency
+
+
+def get_route_permission(route: Any) -> tuple[Permission | None, bool]:
+    """Inspect a FastAPI route or dependant to detect require(...) permission and step-up flag.
+
+    Traverses route dependant and sub-dependencies recursively.
+    Returns:
+        tuple[Permission | None, bool]: (declared_permission, require_reauth)
+    """
+    dependant = getattr(route, "dependant", None)
+    if not dependant:
+        return None, False
+
+    def _inspect(dep_obj: Any) -> tuple[Permission | None, bool]:
+        dependencies = getattr(dep_obj, "dependencies", [])
+        for sub_dep in dependencies:
+            call = getattr(sub_dep, "call", None)
+            if call is not None and hasattr(call, "__required_permission__"):
+                return (
+                    call.__required_permission__,
+                    bool(getattr(call, "__require_reauth__", False)),
+                )
+            perm, reauth = _inspect(sub_dep)
+            if perm is not None:
+                return perm, reauth
+        return None, False
+
+    return _inspect(dependant)
 
 
 # ==============================================================================

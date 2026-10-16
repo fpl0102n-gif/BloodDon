@@ -195,6 +195,7 @@ def reauth(
 )
 def logout(
     response: Response,
+    _session_and_user: Annotated[tuple[Any, Any], Depends(get_current_session_and_user)],
     session_token: Annotated[str | None, Depends(get_session_token)],
     session_service: Annotated[SessionService, Depends(get_session_service)],
     settings: Annotated[Settings, Depends(get_settings)],
