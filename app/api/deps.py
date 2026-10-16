@@ -11,7 +11,9 @@ and docs/03-auth-permissions.md §8.2, §8.5:
 
 import hashlib
 import hmac
-from typing import Annotated
+from collections.abc import Callable
+from datetime import datetime
+from typing import Annotated, Any
 
 from fastapi import Depends, Request, Response
 from sqlalchemy.orm import Session
@@ -19,9 +21,21 @@ from sqlalchemy.orm import Session
 from app.core.clock import Clock, get_clock
 from app.core.config import Settings, get_settings
 from app.core.database import get_db
-from app.core.errors import CsrfFailedError, NotAuthenticatedError
+from app.core.errors import (
+    CsrfFailedError,
+    ForbiddenError,
+    MfaRequiredError,
+    NotAuthenticatedError,
+    ReauthRequiredError,
+)
 from app.mail import get_mailer
 from app.models.user import AuthSession, User
+from app.policy import (
+    Condition,
+    Permission,
+    get_required_conditions,
+    is_permission_granted,
+)
 from app.repositories.sessions import SessionRepository
 from app.repositories.user_tokens import UserTokenRepository
 from app.repositories.users import UserRepository
@@ -223,3 +237,112 @@ def get_current_session(
     """Retrieve current active AuthSession."""
     session, _ = session_and_user
     return session
+
+
+# ==============================================================================
+# 4. Step-Up Re-Authentication Tracking (BR-AUTH-14 / Decision D-20)
+# ==============================================================================
+
+STEP_UP_TIMEOUT_SECONDS: int = 600  # 10 minutes (docs/03-auth-permissions.md §12 / D-20)
+
+# In-memory registry tracking recent password re-authentication timestamps per session
+_SESSION_REAUTH_TIMESTAMPS: dict[str, datetime] = {}
+
+
+def record_session_reauth(session_id: str, timestamp: datetime) -> None:
+    """Record fresh password re-authentication timestamp for an active session."""
+    _SESSION_REAUTH_TIMESTAMPS[session_id] = timestamp
+
+
+def get_session_reauth_time(session: AuthSession) -> datetime:
+    """Retrieve the latest re-authentication timestamp for a session.
+
+    Defaults to session.created_at if no explicit re-auth confirmation has occurred.
+    """
+    return _SESSION_REAUTH_TIMESTAMPS.get(session.id, session.created_at)
+
+
+def is_session_reauth_valid(
+    session: AuthSession,
+    now: datetime,
+    *,
+    timeout_seconds: int = STEP_UP_TIMEOUT_SECONDS,
+) -> bool:
+    """Check if session has a valid step-up confirmation within the timeout window."""
+    last_reauth = get_session_reauth_time(session)
+    elapsed = (now - last_reauth).total_seconds()
+    return elapsed <= timeout_seconds
+
+
+def clear_session_reauth(session_id: str) -> None:
+    """Clear re-authentication confirmation for a session."""
+    _SESSION_REAUTH_TIMESTAMPS.pop(session_id, None)
+
+
+# ==============================================================================
+# 5. Declarative Authorization Dependency Factory (docs/03 §13 / BR-AUTH-14)
+# ==============================================================================
+
+
+def require(
+    permission: Permission,
+    *,
+    require_reauth: bool = False,
+) -> Callable[..., Any]:
+    """FastAPI dependency factory enforcing authentication, role matrix, MFA, and step-up (R).
+
+    Per docs/03-auth-permissions.md §11-§13, docs/06-business-rules.md (BR-AUTH-14),
+    and docs/04-api.md §3.2, §22:
+    - If permission is public (granted to 'anon'):
+        - Requests without session return None (anonymous access allowed).
+        - Authenticated requests return the active User entity.
+    - If permission is protected:
+        - Missing session cookie raises NotAuthenticatedError (401 not_authenticated).
+        - Inactive user accounts raise NotAuthenticatedError.
+        - Lack of role permission in matrix raises ForbiddenError (403 forbidden).
+        - Admin or sessions with MFA requirement without session.mfa_verified=True raise
+          MfaRequiredError (403 mfa_required).
+        - Sensitive operations demanding step-up (R) with confirmation expired (> 600s) raise
+          ReauthRequiredError (403 reauth_required).
+        - Returns the authenticated User entity.
+    """
+
+    def dependency(
+        request: Request,
+        session_token: Annotated[str | None, Depends(get_session_token)],
+        session_service: Annotated[SessionService, Depends(get_session_service)],
+        clock: Annotated[Clock, Depends(get_clock)],
+    ) -> User | None:
+        is_public = is_permission_granted("anon", permission)
+
+        if not session_token:
+            if is_public:
+                return None
+            raise NotAuthenticatedError("Authentication required.")
+
+        session, user = session_service.validate_session(session_token)
+
+        role = user.role
+        conditions = get_required_conditions(role, permission)
+        if conditions is None:
+            raise ForbiddenError("You do not have permission to perform this action.")
+
+        # Check MFA requirement: mandatory for admin role and any session/user with MFA enabled
+        has_mfa = bool(getattr(user, "totp_enabled", getattr(user, "mfa_enabled", False)))
+        needs_mfa = Condition.MFA_VERIFIED in conditions or role == "admin" or has_mfa
+        if needs_mfa and not session.mfa_verified:
+            raise MfaRequiredError("Two-factor authentication code required.")
+
+        # Check step-up recent re-authentication (Condition.RECENT_REAUTH or require_reauth)
+        needs_step_up = require_reauth or (Condition.RECENT_REAUTH in conditions)
+        if needs_step_up:
+            now = clock.now()
+            if not is_session_reauth_valid(session, now):
+                raise ReauthRequiredError("Recent password re-authentication required.")
+
+        # Attach authenticated caller to request state for middleware/handlers
+        request.state.user = user
+        request.state.session = session
+        return user
+
+    return dependency
