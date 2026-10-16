@@ -54,18 +54,18 @@ def create_or_update_roles(conn: psycopg.Connection[Any]) -> None:
             if not cur.fetchone():
                 typer.echo(f"Creating role '{role_name}'...")
                 cur.execute(
-                    sql.SQL("CREATE ROLE {} WITH LOGIN PASSWORD %s;").format(
-                        sql.Identifier(role_name)
-                    ),
-                    (role_pass,),
+                    sql.SQL("CREATE ROLE {} WITH LOGIN PASSWORD {};").format(
+                        sql.Identifier(role_name),
+                        sql.Literal(role_pass),
+                    )
                 )
             else:
                 typer.echo(f"Role '{role_name}' exists; updating password...")
                 cur.execute(
-                    sql.SQL("ALTER ROLE {} WITH LOGIN PASSWORD %s;").format(
-                        sql.Identifier(role_name)
-                    ),
-                    (role_pass,),
+                    sql.SQL("ALTER ROLE {} WITH LOGIN PASSWORD {};").format(
+                        sql.Identifier(role_name),
+                        sql.Literal(role_pass),
+                    )
                 )
 
 

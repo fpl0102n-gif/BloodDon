@@ -99,12 +99,6 @@ def upgrade() -> None:
         sa.UniqueConstraint("token_hash", name=op.f("uq_user_tokens_token_hash")),
     )
     op.create_index(
-        "ix_user_tokens_token_hash",
-        "user_tokens",
-        ["token_hash"],
-        unique=False,
-    )
-    op.create_index(
         "ix_user_tokens_user_id",
         "user_tokens",
         ["user_id"],
@@ -187,7 +181,6 @@ def downgrade() -> None:
 
     op.drop_index("ix_user_tokens_user_id_purpose", table_name="user_tokens")
     op.drop_index("ix_user_tokens_user_id", table_name="user_tokens")
-    op.drop_index("ix_user_tokens_token_hash", table_name="user_tokens")
     op.drop_table("user_tokens")
 
     op.drop_index("ix_users_site_id", table_name="users")

@@ -74,6 +74,7 @@ class User(Base):
         UUID(as_uuid=True),
         ForeignKey("sites.id", ondelete="SET NULL"),
         nullable=True,
+        index=True,
     )
     is_active: Mapped[bool] = mapped_column(
         Boolean,
@@ -203,7 +204,6 @@ class UserToken(Base):
         Text,
         nullable=False,
         unique=True,
-        index=True,
     )
     expires_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -229,6 +229,11 @@ class UserToken(Base):
         CheckConstraint(
             "purpose IN ('invite', 'password_reset')",
             name="purpose",
+        ),
+        Index(
+            "ix_user_tokens_user_id_purpose",
+            "user_id",
+            "purpose",
         ),
     )
 

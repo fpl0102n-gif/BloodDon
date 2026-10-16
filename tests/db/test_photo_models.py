@@ -456,6 +456,7 @@ def test_photo_cascade_deleted_when_donor_deleted(isolated_db: Session) -> None:
 
     isolated_db.delete(donor)
     isolated_db.flush()
+    isolated_db.expire_all()
 
     assert isolated_db.get(Photo, photo_id) is None
 
@@ -512,6 +513,7 @@ def test_photo_uploader_deletion_sets_null(isolated_db: Session) -> None:
 
     isolated_db.delete(supervisor)
     isolated_db.flush()
+    isolated_db.expire_all()
 
     reloaded = isolated_db.get(Photo, photo_id)
     assert reloaded is not None

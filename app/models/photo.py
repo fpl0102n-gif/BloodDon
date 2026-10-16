@@ -66,6 +66,7 @@ class Photo(Base):
         String(20),
         nullable=False,
         default="general",
+        server_default="general",
     )
     caption: Mapped[str | None] = mapped_column(
         Text,

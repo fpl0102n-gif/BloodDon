@@ -16,7 +16,7 @@ from sqlalchemy import Table, inspect
 from sqlalchemy.orm import Session
 
 from app.models.audit import AuditLog, PhoneRevealLog, RateLimitEvent
-from app.models.campaign import Campaign, Site
+from app.models.campaign import Campaign, CampaignSite, Site
 from app.models.donor import Donor
 from app.models.user import User
 
@@ -220,6 +220,7 @@ def test_audit_log_actor_deletion_sets_null(isolated_db: Session) -> None:
     # Delete actor user
     isolated_db.delete(admin)
     isolated_db.flush()
+    isolated_db.expire_all()
 
     reloaded = isolated_db.get(AuditLog, log_id)
     assert reloaded is not None
@@ -245,6 +246,10 @@ def test_phone_reveal_log_persists_after_donor_deletion(isolated_db: Session) ->
     isolated_db.add_all([campaign, site])
     isolated_db.flush()
 
+    csite = CampaignSite(campaign_id=campaign.id, site_id=site.id)
+    isolated_db.add(csite)
+    isolated_db.flush()
+
     donor = Donor(
         campaign_id=campaign.id,
         site_id=site.id,
@@ -266,6 +271,7 @@ def test_phone_reveal_log_persists_after_donor_deletion(isolated_db: Session) ->
     # Delete donor
     isolated_db.delete(donor)
     isolated_db.flush()
+    isolated_db.expire_all()
 
     # Reveal log persists because there is intentionally no FK
     reloaded_reveal = isolated_db.get(PhoneRevealLog, reveal_id)

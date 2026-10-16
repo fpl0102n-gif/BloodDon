@@ -116,6 +116,20 @@ def check_migrator_ddl(migration_url: str) -> tuple[bool, str]:
         engine.dispose()
 
 
+def is_permission_denied(exc: Exception) -> bool:
+    """Check if exception represents a PostgreSQL permission denied error (SQLSTATE 42501)."""
+    err_str = str(exc).lower()
+    if any(phrase in err_str for phrase in ("permission denied", "droit refus", "insufficient")):
+        return True
+    orig = getattr(exc, "orig", None)
+    if orig is not None:
+        if getattr(orig, "sqlstate", None) == "42501":
+            return True
+        if "InsufficientPrivilege" in type(orig).__name__:
+            return True
+    return False
+
+
 def check_app_user_privilege_isolation(app_url: str) -> tuple[bool, str]:
     """Verify that app_user is restricted from DDL and cannot modify audit_log."""
     engine = create_engine(app_url, pool_pre_ping=True)
@@ -125,28 +139,27 @@ def check_app_user_privilege_isolation(app_url: str) -> tuple[bool, str]:
             # 1. DDL Restriction: app_user must NOT be able to CREATE TABLE
             try:
                 conn.execute(text(f"CREATE TABLE {probe_table} (id INT);"))
-                # If it succeeds, isolation has failed
-                conn.execute(text(f"DROP TABLE IF EXISTS {probe_table};"))
+                conn.rollback()
                 return (
                     False,
                     "SECURITY DRIFT: app_user was able to execute CREATE TABLE (DDL is not isolated).",
                 )
             except DBAPIError as exc:
+                conn.rollback()
                 # Expected: permission denied for schema public
-                if (
-                    "permission denied" not in str(exc).lower()
-                    and "insufficient" not in str(exc).lower()
-                ):
+                if not is_permission_denied(exc):
                     return False, f"Unexpected error during app_user DDL check: {exc}"
 
             # 2. Audit Log Append-Only: app_user must NOT be able to UPDATE or DELETE audit_log
             try:
                 conn.execute(text("UPDATE audit_log SET action = 'tamper' WHERE 1=0;"))
+                conn.rollback()
                 return (
                     False,
                     "SECURITY DRIFT: app_user was granted UPDATE on audit_log (violates BR-AUDIT-02).",
                 )
             except DBAPIError as exc:
+                conn.rollback()
                 err_str = str(exc).lower()
                 # Table might not exist yet if migrations haven't run, or permission denied
                 if 'relation "audit_log" does not exist' in err_str:
@@ -154,7 +167,7 @@ def check_app_user_privilege_isolation(app_url: str) -> tuple[bool, str]:
                         True,
                         "app_user DDL restricted (permission denied); audit_log table pending migration",
                     )
-                if "permission denied" not in err_str:
+                if not is_permission_denied(exc):
                     return False, f"Unexpected error during audit_log update check: {exc}"
 
         return (

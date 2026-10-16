@@ -52,7 +52,7 @@ def seed_database(session: Session, *, clean: bool = False) -> dict[str, Any]:
 
     if clean:
         # Delete existing data in reverse foreign-key dependency order
-        session.execute(text("DELETE FROM audit_log"))
+        # Note: audit_log is strictly append-only per BR-AUDIT-02 and cannot be deleted
         session.execute(text("DELETE FROM phone_reveal_log"))
         session.execute(text("DELETE FROM rate_limit_events"))
         session.execute(text("DELETE FROM file_deletion_queue"))
@@ -319,7 +319,7 @@ def seed_database(session: Session, *, clean: bool = False) -> dict[str, Any]:
             totp_enabled=False,
         ),
         User(
-            id=uuid.UUID("s0000001-0000-0000-0000-000000000001"),
+            id=uuid.UUID("b0000001-0000-0000-0000-000000000001"),
             email="sup_a@bloodday.local",
             full_name="مشرف الموقع أ (رئيسي)",
             password_hash=test_hash,
@@ -329,7 +329,7 @@ def seed_database(session: Session, *, clean: bool = False) -> dict[str, Any]:
             totp_enabled=False,
         ),
         User(
-            id=uuid.UUID("s0000002-0000-0000-0000-000000000002"),
+            id=uuid.UUID("b0000002-0000-0000-0000-000000000002"),
             email="sup_a2@bloodday.local",
             full_name="مشرف الموقع أ (مساعد)",
             password_hash=test_hash,
@@ -339,7 +339,7 @@ def seed_database(session: Session, *, clean: bool = False) -> dict[str, Any]:
             totp_enabled=False,
         ),
         User(
-            id=uuid.UUID("s0000003-0000-0000-0000-000000000003"),
+            id=uuid.UUID("b0000003-0000-0000-0000-000000000003"),
             email="sup_b@bloodday.local",
             full_name="مشرف الموقع ب",
             password_hash=test_hash,
@@ -349,7 +349,7 @@ def seed_database(session: Session, *, clean: bool = False) -> dict[str, Any]:
             totp_enabled=False,
         ),
         User(
-            id=uuid.UUID("s0000004-0000-0000-0000-000000000004"),
+            id=uuid.UUID("b0000004-0000-0000-0000-000000000004"),
             email="sup_disabled@bloodday.local",
             full_name="مشرف حساب معطّل",
             password_hash=test_hash,
@@ -359,7 +359,7 @@ def seed_database(session: Session, *, clean: bool = False) -> dict[str, Any]:
             totp_enabled=False,
         ),
         User(
-            id=uuid.UUID("s0000005-0000-0000-0000-000000000005"),
+            id=uuid.UUID("b0000005-0000-0000-0000-000000000005"),
             email="sup_mfa@bloodday.local",
             full_name="مشرف مفعل للمصادقة الثنائية",
             password_hash=test_hash,
@@ -659,8 +659,10 @@ def seed_database(session: Session, *, clean: bool = False) -> dict[str, Any]:
     session.flush()
 
     return {
-        "sites": {"A": site_a, "B": site_b, "C": site_c, "Z": site_z},
-        "campaigns": {"C1": c1, "C2": c2, "C3": c3, "C4": c4, "C5": c5},
+        "sites": 4,
+        "campaigns": 5,
+        "sites_map": {"A": site_a, "B": site_b, "C": site_c, "Z": site_z},
+        "campaigns_map": {"C1": c1, "C2": c2, "C3": c3, "C4": c4, "C5": c5},
         "users": users,
         "reference_donors": reference_donors,
         "donors_count": len(reference_donors) + len(extra_donors),

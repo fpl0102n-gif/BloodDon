@@ -378,5 +378,6 @@ def test_pledge_cascade_deleted_with_campaign_site(isolated_db: Session) -> None
     # Delete CampaignSite
     isolated_db.delete(csite)
     isolated_db.flush()
+    isolated_db.expire_all()
 
     assert isolated_db.get(Pledge, pledge_id) is None

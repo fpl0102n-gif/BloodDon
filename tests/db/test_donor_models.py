@@ -498,6 +498,7 @@ def test_donor_registered_by_user_deletion_sets_null(isolated_db: Session) -> No
 
     isolated_db.delete(supervisor)
     isolated_db.flush()
+    isolated_db.expire_all()
 
     reloaded = isolated_db.get(Donor, donor_id)
     assert reloaded is not None

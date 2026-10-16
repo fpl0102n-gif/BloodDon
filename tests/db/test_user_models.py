@@ -376,12 +376,16 @@ def test_user_cascade_deletion(isolated_db: Session) -> None:
     )
     isolated_db.add_all([token, recovery_code, session])
     isolated_db.flush()
+    token_id = token.id
+    recovery_code_id = recovery_code.id
+    session_id = session.id
 
     # Delete the user
     isolated_db.delete(admin)
     isolated_db.flush()
+    isolated_db.expire_all()
 
     # Assert children are gone
-    assert isolated_db.get(UserToken, token.id) is None
-    assert isolated_db.get(MfaRecoveryCode, recovery_code.id) is None
-    assert isolated_db.get(AuthSession, session.id) is None
+    assert isolated_db.get(UserToken, token_id) is None
+    assert isolated_db.get(MfaRecoveryCode, recovery_code_id) is None
+    assert isolated_db.get(AuthSession, session_id) is None

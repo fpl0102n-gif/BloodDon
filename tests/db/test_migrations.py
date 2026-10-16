@@ -133,7 +133,13 @@ def test_t_struct_06_live_reversible_migrations() -> None:
     if not check_database_connection(test_engine):
         pytest.skip("PostgreSQL test database is not accessible on configured port.")
 
-    cfg = _get_alembic_config(url)
+    migrator_url = url
+    if "app_user" in migrator_url:
+        migrator_url = migrator_url.replace(
+            "app_user:app_user_dev_password", "app_migrator:app_migrator_dev_password"
+        ).replace("app_user", "app_migrator")
+
+    cfg = _get_alembic_config(migrator_url)
 
     # 1. Upgrade from scratch to head
     command.downgrade(cfg, "base")

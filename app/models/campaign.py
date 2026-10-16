@@ -56,7 +56,6 @@ class Campaign(Base):
         Text,
         nullable=False,
         unique=True,
-        index=True,
     )
     title: Mapped[str] = mapped_column(
         Text,
@@ -83,6 +82,7 @@ class Campaign(Base):
         nullable=False,
         default="upcoming",
         server_default="upcoming",
+        index=True,
     )
     is_published: Mapped[bool] = mapped_column(
         Boolean,

@@ -72,6 +72,14 @@ def app_user_engine() -> Generator[Engine, None, None]:
         engine.dispose()
 
 
+def _assert_permission_denied(exc_info: pytest.ExceptionInfo[DBAPIError]) -> None:
+    msg = str(exc_info.value).lower()
+    sqlstate = getattr(getattr(exc_info.value, "orig", None), "sqlstate", None)
+    assert sqlstate == "42501" or any(
+        p in msg for p in ("permission denied", "droit refus", "insufficient")
+    )
+
+
 @pytest.mark.db
 @pytest.mark.critical
 def test_t_audit_02_a_app_user_cannot_update_or_delete_audit_log(app_user_engine: Engine) -> None:
@@ -92,19 +100,19 @@ def test_t_audit_02_a_app_user_cannot_update_or_delete_audit_log(app_user_engine
         # 3. UPDATE on audit_log must fail with permission denied (42501)
         with pytest.raises(DBAPIError) as exc_info:
             conn.execute(text("UPDATE audit_log SET action = 'tampered'"))
-        assert "permission denied" in str(exc_info.value).lower()
+        _assert_permission_denied(exc_info)
         conn.rollback()
 
         # 4. DELETE on audit_log must fail with permission denied (42501)
         with pytest.raises(DBAPIError) as exc_info:
             conn.execute(text("DELETE FROM audit_log"))
-        assert "permission denied" in str(exc_info.value).lower()
+        _assert_permission_denied(exc_info)
         conn.rollback()
 
         # 5. TRUNCATE on audit_log must fail with permission denied (42501)
         with pytest.raises(DBAPIError) as exc_info:
             conn.execute(text("TRUNCATE TABLE audit_log"))
-        assert "permission denied" in str(exc_info.value).lower()
+        _assert_permission_denied(exc_info)
         conn.rollback()
 
 
@@ -116,17 +124,17 @@ def test_t_struct_11_app_user_cannot_execute_ddl(app_user_engine: Engine) -> Non
         # 1. CREATE TABLE must fail (no CREATE on public schema)
         with pytest.raises(DBAPIError) as exc_info:
             conn.execute(text("CREATE TABLE evil_table (id int)"))
-        assert "permission denied" in str(exc_info.value).lower()
+        _assert_permission_denied(exc_info)
         conn.rollback()
 
         # 2. DROP TABLE must fail
         with pytest.raises(DBAPIError) as exc_info:
             conn.execute(text("DROP TABLE audit_log"))
-        assert "permission denied" in str(exc_info.value).lower()
+        _assert_permission_denied(exc_info)
         conn.rollback()
 
         # 3. ALTER TABLE must fail
         with pytest.raises(DBAPIError) as exc_info:
             conn.execute(text("ALTER TABLE audit_log ADD COLUMN evil_col text"))
-        assert "permission denied" in str(exc_info.value).lower()
+        _assert_permission_denied(exc_info)
         conn.rollback()
