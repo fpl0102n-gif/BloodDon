@@ -32,13 +32,13 @@
 | G1 | **Campaign schedule baseline set** (decides 16-week vs 12-week plan, `D-59`) | You + club | Before P0 | ✅ **PASSED** (16-week baseline plan confirmed per D-59, tracked in `docs/13-external-tracks.md`) |
 | G2 | **Timezone confirmed** (`D-36`, proposed `Africa/Algiers`) | You | Before P1 | ✅ **PASSED** (`Africa/Algiers` confirmed and set in `.env.example`) |
 | G3 | **Managed / Local PostgreSQL account & roles** (`D-09`) | Developer / You | Before P2 | ✅ **PASSED** (PostgreSQL 18 instance bootstrapped on port 5432 with databases `bloodday`, `bloodday_test`, `bloodday_staging`; roles `app_migrator` & `app_user` created with verified privilege isolation; migrations 001–008 applied; verified via `verify-database` [GATE-G3]) |
-| G4 | **SMTP provider + verified domain** (`D-50`) | Developer / You | Before P2 | ⏳ Due before P2 |
+| G4 | **SMTP provider + verified domain** (`D-50`) | Developer / You | Before P2 | ✅ **PASSED** (Transactional SMTP configured via Resend on port 465 SSL; authenticated and verified with live test message delivery) |
 | G5 | **Second security reviewer named** (`D-58`) | You | Before P3 | ⏳ Due before P3 |
 | G6 | **Blood center contacted**: texts, consent wording, rest-days value (`D-37`), emergency page approval | You + Medical Club | Start now; needed before P7/P11 | ⏳ In progress |
 | G7 | **Legal review booked** (`D-67`) + data controller confirmed in writing (`D-66`) | You + club | Before P10 | ⏳ In progress |
 | G8 | **VPS ordered** (`D-49`), payment method verified | Developer / You | Before P10 | ⏳ Due before P10 |
 
-> G1, G2, and G3 are resolved. All external tracks, owners, deadlines, and deliverables are tracked in `docs/13-external-tracks.md`.
+> G1, G2, G3, and G4 are resolved. All external tracks, owners, deadlines, and deliverables are tracked in `docs/13-external-tracks.md`.
 
 ---
 
