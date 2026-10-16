@@ -7,8 +7,9 @@ and docs/12-implementation-plan.md:
 - Exposes top-level 'app' instance for Uvicorn (`uvicorn app.main:app`).
 """
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 
+from app.api.deps import verify_csrf
 from app.api.error_handlers import register_error_handlers
 from app.api.middleware import register_middleware
 from app.api.routers.system import router as system_router
@@ -35,6 +36,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         docs_url=docs_url,
         redoc_url=redoc_url,
         openapi_url=openapi_url,
+        dependencies=[Depends(verify_csrf)],
     )
 
     # 3. Register domain and unhandled error handlers
