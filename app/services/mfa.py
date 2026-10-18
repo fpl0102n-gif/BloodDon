@@ -31,8 +31,10 @@ from app.core.security import (
     hash_token,
 )
 from app.models.user import AuthSession, User
+from app.repositories.audit import AuditRepository
 from app.repositories.mfa import MfaRecoveryCodeRepository
 from app.repositories.users import UserRepository
+from app.services.audit import AuditService
 from app.services.sessions import SessionService
 
 logger = logging.getLogger("app.services.mfa")
@@ -63,6 +65,7 @@ class MfaService:
         recovery_repo: MfaRecoveryCodeRepository,
         session_service: SessionService,
         *,
+        audit_service: AuditService | None = None,
         clock: Clock | None = None,
         settings: Settings | None = None,
     ) -> None:
@@ -71,6 +74,10 @@ class MfaService:
         self.session_service = session_service
         self.clock = clock or get_clock()
         self.settings = settings or get_settings()
+        self.audit_service = audit_service or AuditService(
+            AuditRepository(user_repo.db),
+            clock=self.clock,
+        )
 
     @classmethod
     def _get_interim_attempts(cls, session_id: str) -> int:
@@ -104,6 +111,11 @@ class MfaService:
             now = self.clock.now()
             self.session_service.revoke_session_by_hash(session.id)
             session.revoked_at = now
+            self.audit_service.log_session_revoked(
+                session.user_id,
+                reason="max_mfa_attempts",
+                count=1,
+            )
             self.user_repo.db.flush()
             logger.warning(
                 "Interim session %s revoked after 5 failed MFA attempts", session.id[:10]
@@ -181,6 +193,7 @@ class MfaService:
         # Successfully confirmed: enable TOTP and record step
         user.totp_enabled = True
         user.totp_last_used_step = matching_step
+        self.audit_service.log_mfa_enabled(user.id, actor_user_id=user.id, method="totp")
         self.user_repo.db.flush()
         return True
 
@@ -229,11 +242,21 @@ class MfaService:
 
         # 1. Reject codes outside ±1 window (T-AUTH-09-b)
         if matching_step is None:
+            self.audit_service.log_login_failure(
+                reason="invalid_mfa_code",
+                user_id=user.id,
+                ip_hash=session.ip_hash if session else None,
+            )
             self._handle_interim_failure(session)
             raise InvalidCredentialsError("Invalid MFA code.")
 
         # 2. Reject reused code from same or earlier step (BR-AUTH-09 / T-AUTH-09-c)
         if user.totp_last_used_step is not None and matching_step <= user.totp_last_used_step:
+            self.audit_service.log_login_failure(
+                reason="mfa_code_reused",
+                user_id=user.id,
+                ip_hash=session.ip_hash if session else None,
+            )
             self._handle_interim_failure(session)
             raise InvalidCredentialsError("MFA code has already been used.")
 
@@ -241,9 +264,16 @@ class MfaService:
         user.totp_last_used_step = matching_step
         user.last_login_at = now
 
+        was_interim = session is not None and not session.mfa_verified
         if session is not None:
             session.mfa_verified = True
             self._clear_interim_attempts(session.id)
+
+        if was_interim:
+            self.audit_service.log_login_success(
+                user.id,
+                ip_hash=session.ip_hash if session else None,
+            )
 
         self.user_repo.db.flush()
         return True
@@ -272,6 +302,11 @@ class MfaService:
 
         recovery_entry = self.recovery_repo.get_unused_code(user_id, code_hash)
         if recovery_entry is None:
+            self.audit_service.log_login_failure(
+                reason="invalid_recovery_code",
+                user_id=user.id,
+                ip_hash=session.ip_hash if session else None,
+            )
             self._handle_interim_failure(session)
             raise InvalidCredentialsError("Invalid or already used recovery code.")
 
@@ -279,9 +314,16 @@ class MfaService:
         self.recovery_repo.mark_used(recovery_entry, now)
         user.last_login_at = now
 
+        was_interim = session is not None and not session.mfa_verified
         if session is not None:
             session.mfa_verified = True
             self._clear_interim_attempts(session.id)
+
+        if was_interim:
+            self.audit_service.log_login_success(
+                user.id,
+                ip_hash=session.ip_hash if session else None,
+            )
 
         self.user_repo.db.flush()
         return True
@@ -342,5 +384,12 @@ class MfaService:
         self.recovery_repo.delete_all_for_user(target_user.id)
 
         # Drop all sessions immediately per BR-AUTH-13
-        self.session_service.revoke_all_user_sessions(target_user.id)
+        revoked_count = self.session_service.revoke_all_user_sessions(target_user.id)
+        self.audit_service.log_session_revoked(
+            target_user.id,
+            reason="mfa_reset",
+            actor_user_id=admin_user.id,
+            count=revoked_count,
+        )
+        self.audit_service.log_mfa_reset(target_user.id, actor_user_id=admin_user.id)
         self.user_repo.db.flush()

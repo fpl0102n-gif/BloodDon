@@ -71,6 +71,23 @@ class SessionRepository:
         result = self.db.execute(stmt)
         return int(cast(CursorResult[Any], result).rowcount)
 
+    def revoke_all_for_supervisors(self, now: datetime) -> int:
+        """Revoke all active sessions for all supervisors in a single query."""
+        from app.models.user import User
+
+        supervisor_ids = select(User.id).where(User.role == "supervisor")
+        stmt = (
+            update(AuthSession)
+            .where(
+                AuthSession.user_id.in_(supervisor_ids),
+                AuthSession.revoked_at.is_(None),
+            )
+            .values(revoked_at=now)
+        )
+        result = self.db.execute(stmt)
+        self.db.flush()
+        return int(cast(CursorResult[Any], result).rowcount)
+
     def list_active_for_user(
         self,
         user_id: uuid.UUID,

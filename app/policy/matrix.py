@@ -151,9 +151,9 @@ ROLE_PERMISSIONS: Mapping[str, Mapping[Permission, frozenset[Condition]]] = {
         Permission.ME_CHANGE_PASSWORD: frozenset(
             {Condition.ACTIVE_ACCOUNT, Condition.MFA_VERIFIED}
         ),
-        Permission.ME_SETUP_MFA: frozenset({Condition.ACTIVE_ACCOUNT, Condition.MFA_VERIFIED}),
-        Permission.ME_LOGOUT: frozenset({Condition.ACTIVE_ACCOUNT, Condition.MFA_VERIFIED}),
-        Permission.ME_LOGOUT_ALL: frozenset({Condition.ACTIVE_ACCOUNT, Condition.MFA_VERIFIED}),
+        Permission.ME_SETUP_MFA: frozenset({Condition.ACTIVE_ACCOUNT}),
+        Permission.ME_LOGOUT: frozenset({Condition.ACTIVE_ACCOUNT}),
+        Permission.ME_LOGOUT_ALL: frozenset({Condition.ACTIVE_ACCOUNT}),
     },
 }
 

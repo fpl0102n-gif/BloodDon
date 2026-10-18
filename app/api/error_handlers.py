@@ -68,14 +68,23 @@ def _format_validation_details(errors: Any) -> list[dict[str, str]]:
     return details
 
 
+def _is_emergency_path(request: Request) -> bool:
+    """Return True if request path targets public emergency endpoints (BR-EMERG-09)."""
+    path = request.url.path
+    return path.startswith(("/public/emergency", "/api/v1/public/emergency"))
+
+
 async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
     """Handler for all domain AppError exceptions thrown from services or dependencies."""
     request_id = get_request_id(request)
     payload = exc.to_dict(request_id=request_id)
+    headers = dict(exc.headers or {})
+    if _is_emergency_path(request):
+        headers["Cache-Control"] = "no-store"
     return JSONResponse(
         status_code=exc.http_status,
         content=payload,
-        headers=exc.headers,
+        headers=headers or None,
     )
 
 
@@ -120,7 +129,11 @@ async def validation_error_handler(
                 "request_id": request_id,
             }
         }
-        return JSONResponse(status_code=422, content=payload)
+        return JSONResponse(
+            status_code=422,
+            content=payload,
+            headers={"Cache-Control": "no-store"} if _is_emergency_path(request) else None,
+        )
 
     # Standard field validation failure (format, type, constraints)
     details = _format_validation_details(raw_errors)
@@ -132,7 +145,11 @@ async def validation_error_handler(
             "request_id": request_id,
         }
     }
-    return JSONResponse(status_code=422, content=payload)
+    return JSONResponse(
+        status_code=422,
+        content=payload,
+        headers={"Cache-Control": "no-store"} if _is_emergency_path(request) else None,
+    )
 
 
 async def http_exception_handler(request: Request, exc: StarletteHTTPException) -> JSONResponse:
@@ -161,10 +178,13 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException) 
             "request_id": request_id,
         }
     }
+    headers = dict(exc.headers or {})
+    if _is_emergency_path(request):
+        headers["Cache-Control"] = "no-store"
     return JSONResponse(
         status_code=exc.status_code,
         content=payload,
-        headers=exc.headers,
+        headers=headers or None,
     )
 
 

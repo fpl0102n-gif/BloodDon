@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}يوم التبرع بالدم{% endblock %}</title>
+
+    {# Open Graph Metadata (D-74, T-WEB-01-a) #}
+    <meta property="og:site_name" content="منصة يوم التبرع بالدم">
+    <meta property="og:type" content="{% block og_type %}website{% endblock %}">
+    <meta property="og:locale" content="ar_DZ">
+    <meta property="og:title" content="{% block og_title %}يوم التبرع بالدم{% endblock %}">
+    <meta property="og:description" content="{% block og_description %}منصة موحدة لتنظيم وإدارة أيام التبرع بالدم بالمؤسسات الجامعية والطبية{% endblock %}">
+    <meta property="og:url" content="{% block og_url %}{{ canonical_url | default('') }}{% endblock %}">
+    <meta property="og:image" content="{% block og_image %}{{ og_image_url | default('') }}{% endblock %}">
+    <link rel="canonical" href="{% block canonical_url %}{{ canonical_url | default('') }}{% endblock %}">
+
+    {# Self-hosted stylesheet; zero CDN or external fonts (D-71, T-WEB-07-a) #}
+    <link rel="stylesheet" href="/static/css/style.css">
+    {% block head_extra %}{% endblock %}
+</head>
+<body class="site-body">
+    <header class="site-header">
+        <div class="header-container">
+            <div class="brand">
+                <a href="/" class="brand-link">
+                    <span class="brand-icon">🩸</span>
+                    <span class="brand-title">يوم التبرع بالدم</span>
+                </a>
+            </div>
+            <nav class="main-nav" aria-label="التنقل الرئيسي">
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="/" class="nav-link">الرئيسية</a></li>
+                    <li class="nav-item"><a href="/campaigns" class="nav-link">الحملات</a></li>
+                    <li class="nav-item"><a href="/posts" class="nav-link">المنشورات</a></li>
+                    <li class="nav-item"><a href="/emergency" class="nav-link nav-emergency">أحتاج دمًا (طوارئ)</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <main id="main-content" class="main-content">
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="site-footer">
+        <div class="footer-container">
+            <div class="footer-info">
+                <p class="footer-brand">منصة يوم التبرع بالدم</p>
+                <p class="footer-desc">مبادرة تطوعية طبية منظمة بشراكة النوادي الطبية ومركز حقن الدم لدعم بنوك الدم وإنقاذ الأرواح.</p>
+            </div>
+            <div class="footer-links">
+                <ul class="footer-nav">
+                    <li><a href="/about">عن المبادرة</a></li>
+                    <li><a href="/posts">المقالات التوعوية</a></li>
+                    <li><a href="/contact">التواصل والتطوع</a></li>
+                    <li><a href="/emergency">لوحة الطوارئ</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>© 2026 جميع الحقوق محفوظة — مبادرة طلابية تطوعية غير ربحية</p>
+        </div>
+    </footer>
+</body>
+</html>

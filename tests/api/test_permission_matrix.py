@@ -14,6 +14,7 @@ docs/03-auth-permissions.md §11, and docs/06-business-rules.md (BR-AUTH-14):
 - Any cell mismatch MUST fail the test suite and break the build.
 """
 
+import uuid
 from collections.abc import Generator
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -47,7 +48,8 @@ from app.policy import (
 from app.policy.matrix import ROLE_PERMISSIONS
 from app.repositories.sessions import SessionRepository
 from app.services.sessions import SessionService
-from tests.factories.campaign import create_site
+from tests.factories.campaign import create_campaign, create_campaign_site, create_site
+from tests.factories.donor import create_donor
 from tests.factories.user import create_user
 
 
@@ -405,6 +407,471 @@ EXISTING_ROUTE_MATRIX_ROWS: list[MatrixRow] = [
             "admin_fresh": None,
         },
     ),
+    # --------------------------------------------------------------------------
+    # 7. Admin Sites Management (docs/07 §4)
+    # --------------------------------------------------------------------------
+    MatrixRow(
+        method="GET",
+        path="/api/v1/admin/sites",
+        json_body=None,
+        expected_status={
+            "anon": 401,
+            "sup_a": 403,
+            "sup_disabled": 401,
+            "admin_nomfa": 403,
+            "admin": 200,
+            "admin_fresh": 200,
+        },
+        expected_error_codes={
+            "anon": "not_authenticated",
+            "sup_a": "forbidden",
+            "sup_disabled": "not_authenticated",
+            "admin_nomfa": "mfa_required",
+            "admin": None,
+            "admin_fresh": None,
+        },
+    ),
+    MatrixRow(
+        method="DELETE",
+        path="/api/v1/admin/sites/00000000-0000-0000-0000-000000000000",
+        json_body=None,
+        expected_status={
+            "anon": 401,
+            "sup_a": 403,
+            "sup_disabled": 401,
+            "admin_nomfa": 403,
+            "admin": 403,
+            "admin_fresh": 404,
+        },
+        expected_error_codes={
+            "anon": "not_authenticated",
+            "sup_a": "forbidden",
+            "sup_disabled": "not_authenticated",
+            "admin_nomfa": "mfa_required",
+            "admin": "reauth_required",
+            "admin_fresh": "not_found",
+        },
+    ),
+    # --------------------------------------------------------------------------
+    # 8. Admin Campaigns Management (docs/07 §4 Row 13, 15, 16)
+    # --------------------------------------------------------------------------
+    MatrixRow(
+        method="GET",
+        path="/api/v1/admin/campaigns",
+        json_body=None,
+        expected_status={
+            "anon": 401,
+            "sup_a": 403,
+            "sup_disabled": 401,
+            "admin_nomfa": 403,
+            "admin": 200,
+            "admin_fresh": 200,
+        },
+        expected_error_codes={
+            "anon": "not_authenticated",
+            "sup_a": "forbidden",
+            "sup_disabled": "not_authenticated",
+            "admin_nomfa": "mfa_required",
+            "admin": None,
+            "admin_fresh": None,
+        },
+    ),
+    MatrixRow(
+        method="DELETE",
+        path="/api/v1/admin/campaigns/00000000-0000-0000-0000-000000000000",
+        json_body=None,
+        expected_status={
+            "anon": 401,
+            "sup_a": 403,
+            "sup_disabled": 401,
+            "admin_nomfa": 403,
+            "admin": 403,
+            "admin_fresh": 404,
+        },
+        expected_error_codes={
+            "anon": "not_authenticated",
+            "sup_a": "forbidden",
+            "sup_disabled": "not_authenticated",
+            "admin_nomfa": "mfa_required",
+            "admin": "reauth_required",
+            "admin_fresh": "not_found",
+        },
+    ),
+    MatrixRow(
+        method="POST",
+        path="/api/v1/admin/campaigns/00000000-0000-0000-0000-000000000000/set-current",
+        json_body=None,
+        expected_status={
+            "anon": 401,
+            "sup_a": 403,
+            "sup_disabled": 401,
+            "admin_nomfa": 403,
+            "admin": 404,
+            "admin_fresh": 404,
+        },
+        expected_error_codes={
+            "anon": "not_authenticated",
+            "sup_a": "forbidden",
+            "sup_disabled": "not_authenticated",
+            "admin_nomfa": "mfa_required",
+            "admin": "not_found",
+            "admin_fresh": "not_found",
+        },
+    ),
+    MatrixRow(
+        method="POST",
+        path="/api/v1/admin/campaigns/00000000-0000-0000-0000-000000000000/open",
+        json_body=None,
+        expected_status={
+            "anon": 401,
+            "sup_a": 403,
+            "sup_disabled": 401,
+            "admin_nomfa": 403,
+            "admin": 404,
+            "admin_fresh": 404,
+        },
+        expected_error_codes={
+            "anon": "not_authenticated",
+            "sup_a": "forbidden",
+            "sup_disabled": "not_authenticated",
+            "admin_nomfa": "mfa_required",
+            "admin": "not_found",
+            "admin_fresh": "not_found",
+        },
+    ),
+    MatrixRow(
+        method="POST",
+        path="/api/v1/admin/campaigns/00000000-0000-0000-0000-000000000000/revert",
+        json_body=None,
+        expected_status={
+            "anon": 401,
+            "sup_a": 403,
+            "sup_disabled": 401,
+            "admin_nomfa": 403,
+            "admin": 403,
+            "admin_fresh": 404,
+        },
+        expected_error_codes={
+            "anon": "not_authenticated",
+            "sup_a": "forbidden",
+            "sup_disabled": "not_authenticated",
+            "admin_nomfa": "mfa_required",
+            "admin": "reauth_required",
+            "admin_fresh": "not_found",
+        },
+    ),
+    MatrixRow(
+        method="POST",
+        path="/api/v1/admin/campaigns/00000000-0000-0000-0000-000000000000/end",
+        json_body=None,
+        expected_status={
+            "anon": 401,
+            "sup_a": 403,
+            "sup_disabled": 401,
+            "admin_nomfa": 403,
+            "admin": 403,
+            "admin_fresh": 404,
+        },
+        expected_error_codes={
+            "anon": "not_authenticated",
+            "sup_a": "forbidden",
+            "sup_disabled": "not_authenticated",
+            "admin_nomfa": "mfa_required",
+            "admin": "reauth_required",
+            "admin_fresh": "not_found",
+        },
+    ),
+    # --------------------------------------------------------------------------
+    # 9. Admin User Management (docs/07 §4 Row 17, 18, 20)
+    # --------------------------------------------------------------------------
+    MatrixRow(
+        method="GET",
+        path="/api/v1/admin/users",
+        json_body=None,
+        expected_status={
+            "anon": 401,
+            "sup_a": 403,
+            "sup_disabled": 401,
+            "admin_nomfa": 403,
+            "admin": 403,
+            "admin_fresh": 200,
+        },
+        expected_error_codes={
+            "anon": "not_authenticated",
+            "sup_a": "forbidden",
+            "sup_disabled": "not_authenticated",
+            "admin_nomfa": "mfa_required",
+            "admin": "reauth_required",
+            "admin_fresh": None,
+        },
+    ),
+    MatrixRow(
+        method="POST",
+        path="/api/v1/admin/users/deactivate-supervisors",
+        json_body=None,
+        expected_status={
+            "anon": 401,
+            "sup_a": 403,
+            "sup_disabled": 401,
+            "admin_nomfa": 403,
+            "admin": 403,
+            "admin_fresh": 200,
+        },
+        expected_error_codes={
+            "anon": "not_authenticated",
+            "sup_a": "forbidden",
+            "sup_disabled": "not_authenticated",
+            "admin_nomfa": "mfa_required",
+            "admin": "reauth_required",
+            "admin_fresh": None,
+        },
+    ),
+    # --------------------------------------------------------------------------
+    # 10. Admin Audit Log (docs/07 §4 Row 27)
+    # --------------------------------------------------------------------------
+    MatrixRow(
+        method="GET",
+        path="/api/v1/admin/audit",
+        json_body=None,
+        expected_status={
+            "anon": 401,
+            "sup_a": 403,
+            "sup_disabled": 401,
+            "admin_nomfa": 403,
+            "admin": 200,
+            "admin_fresh": 200,
+        },
+        expected_error_codes={
+            "anon": "not_authenticated",
+            "sup_a": "forbidden",
+            "sup_disabled": "not_authenticated",
+            "admin_nomfa": "mfa_required",
+            "admin": None,
+            "admin_fresh": None,
+        },
+    ),
+    # --------------------------------------------------------------------------
+    # 11. Public Discovery Endpoints (docs/07 §4 Row 1)
+    # --------------------------------------------------------------------------
+    MatrixRow(
+        method="GET",
+        path="/api/v1/public/sites",
+        json_body=None,
+        expected_status={
+            "anon": 200,
+            "sup_a": 200,
+            "sup_disabled": 401,
+            "admin_nomfa": 403,
+            "admin": 200,
+            "admin_fresh": 200,
+        },
+        expected_error_codes={
+            "anon": None,
+            "sup_a": None,
+            "sup_disabled": "not_authenticated",
+            "admin_nomfa": "mfa_required",
+            "admin": None,
+            "admin_fresh": None,
+        },
+    ),
+    MatrixRow(
+        method="GET",
+        path="/api/v1/public/campaigns",
+        json_body=None,
+        expected_status={
+            "anon": 200,
+            "sup_a": 200,
+            "sup_disabled": 401,
+            "admin_nomfa": 403,
+            "admin": 200,
+            "admin_fresh": 200,
+        },
+        expected_error_codes={
+            "anon": None,
+            "sup_a": None,
+            "sup_disabled": "not_authenticated",
+            "admin_nomfa": "mfa_required",
+            "admin": None,
+            "admin_fresh": None,
+        },
+    ),
+    # --------------------------------------------------------------------------
+    # 12. Admin Donor Anonymization & Pledge Deletion (docs/07 §4 Rows 25 & 129)
+    # --------------------------------------------------------------------------
+    MatrixRow(
+        method="POST",
+        path="/api/v1/admin/donors/00000000-0000-0000-0000-000000000000/anonymize",
+        json_body=None,
+        expected_status={
+            "anon": 401,
+            "sup_a": 403,
+            "sup_disabled": 401,
+            "admin_nomfa": 403,
+            "admin": 403,
+            "admin_fresh": 404,
+        },
+        expected_error_codes={
+            "anon": "not_authenticated",
+            "sup_a": "forbidden",
+            "sup_disabled": "not_authenticated",
+            "admin_nomfa": "mfa_required",
+            "admin": "reauth_required",
+            "admin_fresh": "not_found",
+        },
+    ),
+    MatrixRow(
+        method="POST",
+        path="/api/v1/admin/donors/00000000-0000-0000-0000-000000000000/relocate",
+        json_body={"site_id": "00000000-0000-0000-0000-000000000000"},
+        expected_status={
+            "anon": 401,
+            "sup_a": 403,
+            "sup_disabled": 401,
+            "admin_nomfa": 403,
+            "admin": 403,
+            "admin_fresh": 404,
+        },
+        expected_error_codes={
+            "anon": "not_authenticated",
+            "sup_a": "forbidden",
+            "sup_disabled": "not_authenticated",
+            "admin_nomfa": "mfa_required",
+            "admin": "reauth_required",
+            "admin_fresh": "not_found",
+        },
+    ),
+    MatrixRow(
+        method="DELETE",
+        path="/api/v1/admin/pledges/00000000-0000-0000-0000-000000000000",
+        json_body=None,
+        expected_status={
+            "anon": 401,
+            "sup_a": 403,
+            "sup_disabled": 401,
+            "admin_nomfa": 403,
+            "admin": 403,
+            "admin_fresh": 404,
+        },
+        expected_error_codes={
+            "anon": "not_authenticated",
+            "sup_a": "forbidden",
+            "sup_disabled": "not_authenticated",
+            "admin_nomfa": "mfa_required",
+            "admin": "reauth_required",
+            "admin_fresh": "not_found",
+        },
+    ),
+    # --------------------------------------------------------------------------
+    # 13. Admin File Deletion Queue (docs/04 §20, Permission.FILE_QUEUE_MANAGE)
+    # --------------------------------------------------------------------------
+    MatrixRow(
+        method="GET",
+        path="/api/v1/admin/file-queue",
+        json_body=None,
+        expected_status={
+            "anon": 401,
+            "sup_a": 403,
+            "sup_disabled": 401,
+            "admin_nomfa": 403,
+            "admin": 200,
+            "admin_fresh": 200,
+        },
+        expected_error_codes={
+            "anon": "not_authenticated",
+            "sup_a": "forbidden",
+            "sup_disabled": "not_authenticated",
+            "admin_nomfa": "mfa_required",
+            "admin": None,
+            "admin_fresh": None,
+        },
+    ),
+    MatrixRow(
+        method="POST",
+        path="/api/v1/admin/file-queue/0/mark-deleted",
+        json_body=None,
+        expected_status={
+            "anon": 401,
+            "sup_a": 403,
+            "sup_disabled": 401,
+            "admin_nomfa": 403,
+            "admin": 404,
+            "admin_fresh": 404,
+        },
+        expected_error_codes={
+            "anon": "not_authenticated",
+            "sup_a": "forbidden",
+            "sup_disabled": "not_authenticated",
+            "admin_nomfa": "mfa_required",
+            "admin": "not_found",
+            "admin_fresh": "not_found",
+        },
+    ),
+    MatrixRow(
+        method="POST",
+        path="/api/v1/admin/file-queue/process",
+        json_body={"batch_size": 10, "dry_run": True},
+        expected_status={
+            "anon": 401,
+            "sup_a": 403,
+            "sup_disabled": 401,
+            "admin_nomfa": 403,
+            "admin": 200,
+            "admin_fresh": 200,
+        },
+        expected_error_codes={
+            "anon": "not_authenticated",
+            "sup_a": "forbidden",
+            "sup_disabled": "not_authenticated",
+            "admin_nomfa": "mfa_required",
+            "admin": None,
+            "admin_fresh": None,
+        },
+    ),
+    # --------------------------------------------------------------------------
+    # 14. Admin Posts (docs/04 §19, Permission.POST_MANAGE)
+    # --------------------------------------------------------------------------
+    MatrixRow(
+        method="GET",
+        path="/api/v1/admin/posts",
+        json_body=None,
+        expected_status={
+            "anon": 401,
+            "sup_a": 403,
+            "sup_disabled": 401,
+            "admin_nomfa": 403,
+            "admin": 200,
+            "admin_fresh": 200,
+        },
+        expected_error_codes={
+            "anon": "not_authenticated",
+            "sup_a": "forbidden",
+            "sup_disabled": "not_authenticated",
+            "admin_nomfa": "mfa_required",
+            "admin": None,
+            "admin_fresh": None,
+        },
+    ),
+    MatrixRow(
+        method="DELETE",
+        path="/api/v1/admin/posts/00000000-0000-0000-0000-000000000000",
+        json_body=None,
+        expected_status={
+            "anon": 401,
+            "sup_a": 403,
+            "sup_disabled": 401,
+            "admin_nomfa": 403,
+            "admin": 403,
+            "admin_fresh": 404,
+        },
+        expected_error_codes={
+            "anon": "not_authenticated",
+            "sup_a": "forbidden",
+            "sup_disabled": "not_authenticated",
+            "admin_nomfa": "mfa_required",
+            "admin": "reauth_required",
+            "admin_fresh": "not_found",
+        },
+    ),
 ]
 
 
@@ -514,6 +981,292 @@ def test_t_struct_02_step_up_sensitive_mfa_disable_matrix(
     record_session_reauth(sess_sup_mfa.id, matrix_clock.now())
     resp = execute_persona_request(matrix_test_client, p_sup_mfa, "POST", path)
     assert resp.status_code == 204
+
+
+@pytest.mark.critical
+def test_t_struct_02_supervisor_field_matrix_and_site_isolation(
+    matrix_test_client: TestClient,
+    matrix_personas: dict[str, PersonaContext],
+    matrix_clock: FakeClock,
+    db_session: Session,
+) -> None:
+    """T-STRUCT-02 / BR-DONOR-09: Canonical permission matrix execution for supervisor field operations (docs/07 §4).
+
+    Verifies across all 6 canonical personas:
+    1. POST /supervisor/donors (live campaign): anon=401, sup_a=201, sup_disabled=401, admin_nomfa=403, admin=403, admin_fresh=403
+    2. GET /supervisor/donors: anon=401, sup_a=200, sup_disabled=401, admin_nomfa=403, admin=403, admin_fresh=403
+    3. GET /supervisor/donors/{dB1}: anon=401, sup_a=404 (NEVER 403), sup_disabled=401, admin_nomfa=403, admin=403, admin_fresh=403
+    4. PATCH /supervisor/donors/{dB1}: anon=401, sup_a=404 (NEVER 403), sup_disabled=401, admin_nomfa=403, admin=403, admin_fresh=403
+    5. PUT /supervisor/donors/{dA1}/status: anon=401, sup_a=200, sup_disabled=401, admin_nomfa=403, admin=403, admin_fresh=403
+    6. DELETE /supervisor/donors/{dB1}: anon=401, sup_a=404 (NEVER 403), sup_disabled=401, admin_nomfa=403, admin=403, admin_fresh=403
+    7. Peer supervisor (sup_a2) accesses dA1 with 200; foreign supervisor (sup_b) gets 404.
+    8. Non-live campaign gives 409 no_live_campaign to sup_a on /supervisor/* (BR-CAMP-16 ★).
+    """
+    user_sup_a = matrix_personas["sup_a"].user
+    assert user_sup_a is not None and user_sup_a.site_id is not None
+    site_a_id = user_sup_a.site_id
+
+    # 1. Provision Site B and a live current campaign with both sites participating
+    site_b = create_site(db_session, name="Site B Matrix")
+    live_campaign = create_campaign(
+        db_session,
+        title="حملة اليوم الموحد الميدانية",
+        slug="live-field-matrix",
+        status="live",
+        is_published=True,
+        is_current=True,
+    )
+    create_campaign_site(db_session, campaign_id=live_campaign.id, site_id=site_a_id)
+    create_campaign_site(db_session, campaign_id=live_campaign.id, site_id=site_b.id)
+
+    # 2. Provision donor_a1 (Site A) and donor_b1 (Site B)
+    donor_a1 = create_donor(
+        db_session,
+        campaign_id=live_campaign.id,
+        site_id=site_a_id,
+        first_name="متبرع موقع أ",
+        status="attended",
+    )
+    donor_b1 = create_donor(
+        db_session,
+        campaign_id=live_campaign.id,
+        site_id=site_b.id,
+        first_name="متبرع موقع ب",
+        status="attended",
+    )
+
+    operations = [
+        (
+            "POST",
+            "/api/v1/supervisor/donors",
+            lambda: {
+                "id": str(uuid.uuid4()),
+                "first_name": "متبرع جديد",
+                "consent_hero_name": True,
+            },
+            {
+                "anon": 401,
+                "sup_a": 201,
+                "sup_disabled": 401,
+                "admin_nomfa": 403,
+                "admin": 403,
+                "admin_fresh": 403,
+            },
+            {
+                "anon": "not_authenticated",
+                "sup_a": None,
+                "sup_disabled": "not_authenticated",
+                "admin_nomfa": "mfa_required",
+                "admin": "forbidden",
+                "admin_fresh": "forbidden",
+            },
+        ),
+        (
+            "GET",
+            "/api/v1/supervisor/donors",
+            lambda: None,
+            {
+                "anon": 401,
+                "sup_a": 200,
+                "sup_disabled": 401,
+                "admin_nomfa": 403,
+                "admin": 403,
+                "admin_fresh": 403,
+            },
+            {
+                "anon": "not_authenticated",
+                "sup_a": None,
+                "sup_disabled": "not_authenticated",
+                "admin_nomfa": "mfa_required",
+                "admin": "forbidden",
+                "admin_fresh": "forbidden",
+            },
+        ),
+        (
+            "GET",
+            f"/api/v1/supervisor/donors/{donor_b1.id}",
+            lambda: None,
+            {
+                "anon": 401,
+                "sup_a": 404,
+                "sup_disabled": 401,
+                "admin_nomfa": 403,
+                "admin": 403,
+                "admin_fresh": 403,
+            },
+            {
+                "anon": "not_authenticated",
+                "sup_a": "not_found",
+                "sup_disabled": "not_authenticated",
+                "admin_nomfa": "mfa_required",
+                "admin": "forbidden",
+                "admin_fresh": "forbidden",
+            },
+        ),
+        (
+            "PATCH",
+            f"/api/v1/supervisor/donors/{donor_b1.id}",
+            lambda: {"first_name": "اسم محدث"},
+            {
+                "anon": 401,
+                "sup_a": 404,
+                "sup_disabled": 401,
+                "admin_nomfa": 403,
+                "admin": 403,
+                "admin_fresh": 403,
+            },
+            {
+                "anon": "not_authenticated",
+                "sup_a": "not_found",
+                "sup_disabled": "not_authenticated",
+                "admin_nomfa": "mfa_required",
+                "admin": "forbidden",
+                "admin_fresh": "forbidden",
+            },
+        ),
+        (
+            "PUT",
+            f"/api/v1/supervisor/donors/{donor_a1.id}/status",
+            lambda: {"status": "donated"},
+            {
+                "anon": 401,
+                "sup_a": 200,
+                "sup_disabled": 401,
+                "admin_nomfa": 403,
+                "admin": 403,
+                "admin_fresh": 403,
+            },
+            {
+                "anon": "not_authenticated",
+                "sup_a": None,
+                "sup_disabled": "not_authenticated",
+                "admin_nomfa": "mfa_required",
+                "admin": "forbidden",
+                "admin_fresh": "forbidden",
+            },
+        ),
+        (
+            "DELETE",
+            f"/api/v1/supervisor/donors/{donor_b1.id}",
+            lambda: None,
+            {
+                "anon": 401,
+                "sup_a": 404,
+                "sup_disabled": 401,
+                "admin_nomfa": 403,
+                "admin": 403,
+                "admin_fresh": 403,
+            },
+            {
+                "anon": "not_authenticated",
+                "sup_a": "not_found",
+                "sup_disabled": "not_authenticated",
+                "admin_nomfa": "mfa_required",
+                "admin": "forbidden",
+                "admin_fresh": "forbidden",
+            },
+        ),
+    ]
+
+    for method, path, payload_factory, expected_statuses, expected_codes in operations:
+        for persona_name, persona in matrix_personas.items():
+            payload = payload_factory() if payload_factory else None
+            resp = execute_persona_request(
+                matrix_test_client,
+                persona,
+                method=method,
+                path=path,
+                json_body=payload,
+            )
+            expected_status = expected_statuses[persona_name]
+            expected_code = expected_codes[persona_name]
+
+            assert resp.status_code == expected_status, (
+                f"Matrix mismatch on {method} {path} for persona '{persona_name}': "
+                f"expected {expected_status}, got {resp.status_code}. Response: {resp.text}"
+            )
+            if expected_code is not None:
+                assert resp.json().get("error", {}).get("code") == expected_code, (
+                    f"Error code mismatch on {method} {path} for persona '{persona_name}': "
+                    f"expected '{expected_code}', got '{resp.json().get('error', {}).get('code')}'"
+                )
+
+    # 3. Verify GET /supervisor/donors returns donor_a1 and strictly excludes donor_b1 for sup_a
+    resp_list = execute_persona_request(
+        matrix_test_client, matrix_personas["sup_a"], "GET", "/api/v1/supervisor/donors"
+    )
+    assert resp_list.status_code == 200
+    returned_ids = [item["id"] for item in resp_list.json()["items"]]
+    assert str(donor_a1.id) in returned_ids
+    assert str(donor_b1.id) not in returned_ids
+
+    # 4. Verify peer isolation: sup_a2 (same site) gets 200, sup_b (different site) gets 404
+    session_service = SessionService(
+        SessionRepository(db_session),
+        clock=matrix_clock,
+        settings=get_settings(),
+    )
+    user_sup_a2 = create_user(
+        db_session,
+        email="sup_a2_matrix@example.com",
+        role="supervisor",
+        site_id=site_a_id,
+        is_active=True,
+    )
+    tok_sup_a2, _ = session_service.create_session(user_sup_a2.id, "supervisor")
+    p_sup_a2 = PersonaContext(name="sup_a2", user=user_sup_a2, raw_token=tok_sup_a2)
+
+    resp_peer = execute_persona_request(
+        matrix_test_client,
+        p_sup_a2,
+        "GET",
+        f"/api/v1/supervisor/donors/{donor_a1.id}",
+    )
+    assert resp_peer.status_code == 200
+    assert resp_peer.json()["first_name"] == "متبرع موقع أ"
+
+    user_sup_b = create_user(
+        db_session,
+        email="sup_b_matrix@example.com",
+        role="supervisor",
+        site_id=site_b.id,
+        is_active=True,
+    )
+    tok_sup_b, _ = session_service.create_session(user_sup_b.id, "supervisor")
+    p_sup_b = PersonaContext(name="sup_b", user=user_sup_b, raw_token=tok_sup_b)
+
+    resp_foreign = execute_persona_request(
+        matrix_test_client,
+        p_sup_b,
+        "GET",
+        f"/api/v1/supervisor/donors/{donor_a1.id}",
+    )
+    assert resp_foreign.status_code == 404
+    assert resp_foreign.json()["error"]["code"] == "not_found"
+
+    # 5. Non-live campaign condition (BR-CAMP-16 ★): sup_a gets 409 no_live_campaign
+    live_campaign.status = "ended"
+    db_session.flush()
+
+    for method, path, payload in [
+        ("GET", "/api/v1/supervisor/donors", None),
+        ("POST", "/api/v1/supervisor/donors", {"id": str(uuid.uuid4()), "first_name": "متبرع"}),
+        ("GET", f"/api/v1/supervisor/donors/{donor_a1.id}", None),
+        ("PATCH", f"/api/v1/supervisor/donors/{donor_a1.id}", {"first_name": "تعديل"}),
+        ("PUT", f"/api/v1/supervisor/donors/{donor_a1.id}/status", {"status": "attended"}),
+        ("DELETE", f"/api/v1/supervisor/donors/{donor_a1.id}", None),
+    ]:
+        resp_ended = execute_persona_request(
+            matrix_test_client,
+            matrix_personas["sup_a"],
+            method=method,
+            path=path,
+            json_body=payload,
+        )
+        assert resp_ended.status_code == 409, (
+            f"{method} {path} expected 409 on ended campaign, got {resp_ended.status_code}"
+        )
+        assert resp_ended.json()["error"]["code"] == "no_live_campaign"
 
 
 @pytest.mark.critical

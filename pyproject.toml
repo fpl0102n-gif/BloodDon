@@ -39,6 +39,7 @@ dev = [
     "types-Pillow>=10.2.0.20240520",
     "types-Markdown>=3.6.0.20240316",
     "detect-secrets>=1.5.0",
+    "hypothesis>=6.170.1",
 ]
 
 [build-system]
@@ -92,6 +93,10 @@ allowed-confusables = [
 "app/cli/*" = [
     "T201",   # allow print in CLI commands
 ]
+"scripts/staging_purge_simulation.py" = [
+    "T201",   # allow print in review script
+    "S101",   # allow asserts in review simulation
+]
 
 # ------------------------------------------------------------------------------
 # Mypy Configuration (Type Checking)
@@ -139,5 +144,6 @@ markers = [
     "web: Server-rendered templates and HTML tests",
     "concurrency: Multi-threaded and race condition tests",
     "cli: CLI operational command tests",
+    "property: Property-based tests using Hypothesis (D-43)",
 ]
 addopts = "-ra -q"

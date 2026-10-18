@@ -34,6 +34,8 @@ AUTHORIZED_PUBLIC_ALLOWLIST: frozenset[tuple[str, str]] = frozenset(
         ("GET", "/redoc"),
         ("GET", "/openapi.json"),
         ("GET", "/docs/oauth2-redirect"),
+        # 3. Local Static Assets (D-71)
+        ("GET", "/static"),
         # 3. Authentication Handshake & Sessions (/auth/* and /api/v1/auth/* per docs/04 §9)
         ("GET", "/auth/csrf"),
         ("GET", "/api/v1/auth/csrf"),

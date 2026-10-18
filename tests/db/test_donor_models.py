@@ -503,3 +503,87 @@ def test_donor_registered_by_user_deletion_sets_null(isolated_db: Session) -> No
     reloaded = isolated_db.get(Donor, donor_id)
     assert reloaded is not None
     assert reloaded.registered_by is None
+
+
+@pytest.mark.db
+@pytest.mark.critical
+@pytest.mark.br("BR-COUNT-01")
+@pytest.mark.br("BR-COUNT-02")
+def test_donor_repository_counter_invariants_db(isolated_db: Session) -> None:
+    """T-COUNT-02-a (DB): Verify counter queries on PostgreSQL satisfy 0 <= heroes <= donated <= present."""
+    from app.repositories.donors import DonorRepository
+
+    campaign, site, _, _ = _setup_context(isolated_db)
+    repo = DonorRepository(isolated_db)
+
+    # 1. Initially empty
+    present, donated, heroes = repo.count_site_counters(campaign.id, site.id)
+    assert (present, donated, heroes) == (0, 0, 0)
+
+    # 2. Add attended donor with hero_consent=True
+    # BR-COUNT-01: An attended donor with hero_consent=True MUST NOT be counted in heroes!
+    d1 = Donor(
+        campaign_id=campaign.id,
+        site_id=site.id,
+        first_name="متبرع 1",
+        status="attended",
+        consent_hero_name=True,
+    )
+    repo.create(d1)
+
+    present, donated, heroes = repo.count_site_counters(campaign.id, site.id)
+    assert present == 1
+    assert donated == 0
+    assert heroes == 0
+    assert 0 <= heroes <= donated <= present
+
+    # 3. Add attended donor without hero consent
+    d2 = Donor(
+        campaign_id=campaign.id,
+        site_id=site.id,
+        first_name="متبرع 2",
+        status="attended",
+        consent_hero_name=False,
+    )
+    repo.create(d2)
+
+    present, donated, heroes = repo.count_site_counters(campaign.id, site.id)
+    assert present == 2
+    assert donated == 0
+    assert heroes == 0
+    assert 0 <= heroes <= donated <= present
+
+    # 4. d1 donates -> status='donated', hero_consent=True -> donated=1, heroes=1
+    d1.status = "donated"
+    d1.donated_at = datetime.now(UTC)
+    repo.update(d1)
+
+    present, donated, heroes = repo.count_site_counters(campaign.id, site.id)
+    assert present == 2
+    assert donated == 1
+    assert heroes == 1
+    assert 0 <= heroes <= donated <= present
+
+    # 5. d2 donates -> status='donated', hero_consent=False -> donated=2, heroes=1
+    d2.status = "donated"
+    d2.donated_at = datetime.now(UTC)
+    repo.update(d2)
+
+    present, donated, heroes = repo.count_site_counters(campaign.id, site.id)
+    assert present == 2
+    assert donated == 2
+    assert heroes == 1
+    assert 0 <= heroes <= donated <= present
+
+    # Campaign-level query matches site aggregations
+    camp_present, camp_donated, camp_heroes = repo.count_campaign_counters(campaign.id)
+    assert (camp_present, camp_donated, camp_heroes) == (2, 2, 1)
+
+    # 6. Delete d1 -> present=1, donated=1, heroes=0
+    repo.delete_donor(d1)
+
+    present, donated, heroes = repo.count_site_counters(campaign.id, site.id)
+    assert present == 1
+    assert donated == 1
+    assert heroes == 0
+    assert 0 <= heroes <= donated <= present

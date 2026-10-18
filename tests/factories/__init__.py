@@ -16,6 +16,7 @@ from tests.factories.campaign import (
 from tests.factories.donor import create_donor
 from tests.factories.photo import create_file_deletion_queue, create_photo
 from tests.factories.pledge import create_pledge
+from tests.factories.post import create_post
 from tests.factories.user import (
     create_auth_session,
     create_mfa_recovery_code,
@@ -34,6 +35,7 @@ __all__ = [
     "create_phone_reveal_log",
     "create_photo",
     "create_pledge",
+    "create_post",
     "create_rate_limit_event",
     "create_site",
     "create_user",

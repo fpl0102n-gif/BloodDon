@@ -34,8 +34,10 @@ from app.mail import (
     render_password_reset_email,
 )
 from app.models.user import AuthSession, User
+from app.repositories.audit import AuditRepository
 from app.repositories.user_tokens import UserTokenRepository
 from app.repositories.users import UserRepository
+from app.services.audit import AuditService
 from app.services.sessions import SessionService
 
 logger = logging.getLogger("app.services.auth")
@@ -60,6 +62,7 @@ class AuthService:
         session_service: SessionService,
         token_repo: UserTokenRepository | None = None,
         *,
+        audit_service: AuditService | None = None,
         mailer: Mailer | None = None,
         clock: Clock | None = None,
         settings: Settings | None = None,
@@ -70,6 +73,10 @@ class AuthService:
         self.mailer = mailer or get_mailer()
         self.clock = clock or get_clock()
         self.settings = settings or get_settings()
+        self.audit_service = audit_service or AuditService(
+            AuditRepository(user_repo.db),
+            clock=self.clock,
+        )
 
     def authenticate(
         self,
@@ -96,16 +103,31 @@ class AuthService:
         user = self.user_repo.get_by_email(clean_email)
         if user is None:
             dummy_verify_password(password)
+            self.audit_service.log_login_failure(
+                reason="user_not_found",
+                ip_hash=ip_hash,
+                user_id=None,
+            )
             raise InvalidCredentialsError("Invalid email or password.")
 
         # Step 2: Handle uninitialized accounts (pending invitations without password)
         if user.password_hash is None:
             dummy_verify_password(password)
+            self.audit_service.log_login_failure(
+                reason="uninitialized_account",
+                ip_hash=ip_hash,
+                user_id=user.id,
+            )
             raise InvalidCredentialsError("Invalid email or password.")
 
         # Step 3: Check active lockout (BR-AUTH-06)
         if user.locked_until is not None and user.locked_until > now:
             dummy_verify_password(password)
+            self.audit_service.log_login_failure(
+                reason="account_locked",
+                ip_hash=ip_hash,
+                user_id=user.id,
+            )
             raise InvalidCredentialsError("Invalid email or password.")
 
         # Step 4: Verify Argon2id password hash (BR-AUTH-04)
@@ -120,6 +142,12 @@ class AuthService:
                 # 5 failures -> 15 min, 10 failures -> 30 min, 15+ failures -> 60 min
                 lockout_minutes = min(60, 15 * (2 ** (lockout_multiplier - 1)))
                 locked_until = now + timedelta(minutes=lockout_minutes)
+                self.audit_service.log_lockout(
+                    user.id,
+                    lock_minutes=lockout_minutes,
+                    failed_attempts=new_failed_count,
+                    ip_hash=ip_hash,
+                )
             elif (
                 user.failed_login_count >= 5
                 and user.locked_until is not None
@@ -129,10 +157,20 @@ class AuthService:
                 locked_until = None
 
             self.user_repo.increment_failed_login(user, locked_until=locked_until)
+            self.audit_service.log_login_failure(
+                reason="invalid_password",
+                ip_hash=ip_hash,
+                user_id=user.id,
+            )
             raise InvalidCredentialsError("Invalid email or password.")
 
         # Step 5: Check account active status (BR-AUTH-07)
         if not user.is_active:
+            self.audit_service.log_login_failure(
+                reason="account_disabled",
+                ip_hash=ip_hash,
+                user_id=user.id,
+            )
             raise InvalidCredentialsError("Invalid email or password.")
 
         # Step 6: Clear failed login counters on successful password verification
@@ -157,6 +195,7 @@ class AuthService:
                 user_agent=user_agent,
                 mfa_verified=True,
             )
+            self.audit_service.log_login_success(user.id, ip_hash=ip_hash)
         else:
             # Interim session (mfa_verified=False), last_login_at recorded upon MFA success
             raw_token, session = self.session_service.create_session(
@@ -359,7 +398,14 @@ class AuthService:
         self.token_repo.mark_as_used(token_record, now)
 
         # Invalidate ALL active sessions across all devices (BR-AUTH-13 / BR-AUTH-15)
-        self.session_service.revoke_all_user_sessions(user.id)
+        revoked_count = self.session_service.revoke_all_user_sessions(user.id)
+        self.audit_service.log_session_revoked(
+            user.id,
+            reason="password_reset",
+            actor_user_id=user.id,
+            count=revoked_count,
+        )
+        self.audit_service.log_password_reset(user.id, method="token")
 
         return user
 
@@ -394,9 +440,22 @@ class AuthService:
         self.user_repo.update_password_hash(user, new_hash)
 
         # Invalidate all OTHER sessions for this user (BR-AUTH-13 / BR-AUTH-16)
-        self.session_service.revoke_all_user_sessions(
+        revoked_count = self.session_service.revoke_all_user_sessions(
             user.id,
             except_raw_token=current_raw_token,
+        )
+        if revoked_count > 0:
+            self.audit_service.log_session_revoked(
+                user.id,
+                reason="password_changed",
+                actor_user_id=user.id,
+                count=revoked_count,
+            )
+
+        self.audit_service.log_password_changed(
+            user.id,
+            actor_user_id=user.id,
+            reason="user_change",
         )
 
         return user

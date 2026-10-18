@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block title %}المقالات التوعوية والمنشورات | يوم التبرع بالدم{% endblock %}
+{% block og_title %}المقالات التوعوية والمنشورات | يوم التبرع بالدم{% endblock %}
+{% block og_description %}دليل ومقالات وإرشادات توعوية حول ثقافة التبرع بالدم، شروطه وفوائده الصحية.{% endblock %}
+{% block og_url %}{{ canonical_url }}{% endblock %}
+{% block canonical_url %}{{ canonical_url }}{% endblock %}
+{% block og_image %}{{ og_image_url }}{% endblock %}
+
+{% block content %}
+<section class="posts-page-header">
+    <div class="container">
+        <h1 class="page-title">المقالات والمنشورات التوعوية</h1>
+        <p class="page-subtitle">مقالات وإرشادات طبية توعوية تسلط الضوء على أهمية التبرع بالدم وفوائده الصحية على الفرد والمجتمع.</p>
+    </div>
+</section>
+
+<section class="posts-section">
+    <div class="container">
+        {% if posts and posts|length > 0 %}
+        <div class="posts-grid">
+            {% for post in posts %}
+            <article class="post-card">
+                {% if post.cover_url %}
+                <div class="post-card-cover">
+                    <img src="{{ post.cover_url }}" alt="{{ post.title }}" class="post-cover-image">
+                </div>
+                {% endif %}
+                <div class="post-card-body">
+                    <div class="post-card-meta">
+                        {% if post.published_at %}
+                        <time datetime="{{ post.published_at.isoformat() }}" class="post-date">
+                            {{ post.published_at.strftime('%Y-%m-%d') }}
+                        </time>
+                        {% endif %}
+                    </div>
+                    <h2 class="post-card-title">
+                        <a href="/posts/{{ post.slug }}" class="post-title-link">{{ post.title }}</a>
+                    </h2>
+                    {% if post.excerpt %}
+                    <p class="post-card-excerpt">{{ post.excerpt }}</p>
+                    {% endif %}
+                    <div class="post-card-footer">
+                        <a href="/posts/{{ post.slug }}" class="post-read-btn">قراءة المقال ←</a>
+                    </div>
+                </div>
+            </article>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <span class="empty-icon">📝</span>
+            <h2 class="empty-title">لا توجد مقالات منشورة حاليًا</h2>
+            <p class="empty-desc">سيتم نشر مقالات توعوية وإرشادات طبية قريبًا بإشراف الطاقم الطبي والنوادي المنظمة.</p>
+            <a href="/" class="btn-primary">العودة للرئيسية</a>
+        </div>
+        {% endif %}
+    </div>
+</section>
+{% endblock %}

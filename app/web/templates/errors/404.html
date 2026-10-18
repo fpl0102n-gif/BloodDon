@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block title %}الصفحة غير موجودة (404) | يوم التبرع بالدم{% endblock %}
+
+{% block content %}
+<section class="error-page-section">
+    <div class="container error-container">
+        <div class="error-card">
+            <span class="error-code">404</span>
+            <h1 class="error-title">الصفحة المطلوبة غير موجودة</h1>
+            <p class="error-message">
+                {{ message | default('عذرًا، المنشور أو الصفحة التي تبحث عنها غير متوفرة أو لم تعد منشورة.') }}
+            </p>
+            <div class="error-actions">
+                <a href="/posts" class="btn-primary">استعراض المنشورات</a>
+                <a href="/" class="btn-outline">العودة للرئيسية</a>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

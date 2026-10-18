@@ -6,6 +6,7 @@ from app.models.campaign import Campaign, CampaignSite, Site
 from app.models.donor import Donor
 from app.models.photo import FileDeletionQueue, Photo
 from app.models.pledge import Pledge
+from app.models.post import Post
 from app.models.user import AuthSession, MfaRecoveryCode, User, UserToken
 
 __all__ = [
@@ -20,6 +21,7 @@ __all__ = [
     "PhoneRevealLog",
     "Photo",
     "Pledge",
+    "Post",
     "RateLimitEvent",
     "Site",
     "User",

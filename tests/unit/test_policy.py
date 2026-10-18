@@ -139,21 +139,33 @@ class TestPolicyCanEvaluation:
         self,
         role_sup_a: MockUser,
     ) -> None:
-        """Supervisor can only act on their assigned site (Condition S)."""
-        # Own site A with live campaign -> Allowed
+        """Supervisor can only act on their assigned site (Condition S) across all field operations."""
         ctx_a = PolicyContext(site_id=role_sup_a.site_id, campaign_status="live")
-        assert can(role_sup_a, Permission.DONOR_CREATE, ctx_a)
-        assert can(role_sup_a, Permission.DONOR_READ, ctx_a)
-        assert can(role_sup_a, Permission.PHOTO_UPLOAD, ctx_a)
+        field_perms = [
+            Permission.DONOR_CREATE,
+            Permission.DONOR_READ,
+            Permission.DONOR_UPDATE,
+            Permission.DONOR_DELETE,
+            Permission.PHOTO_UPLOAD,
+            Permission.PHOTO_DELETE,
+        ]
 
-        # Foreign site B -> Rejected (violates S)
+        # Own site A with live campaign -> Allowed for all field operations
+        for perm in field_perms:
+            assert can(role_sup_a, perm, ctx_a), f"Supervisor should be allowed {perm} on own site"
+
+        # Foreign site B -> Rejected (violates Condition S) for all field operations
         ctx_b = PolicyContext(site_id="site-b-002", campaign_status="live")
-        assert not can(role_sup_a, Permission.DONOR_CREATE, ctx_b)
-        assert not can(role_sup_a, Permission.DONOR_READ, ctx_b)
-        assert not can(role_sup_a, Permission.PHOTO_UPLOAD, ctx_b)
+        for perm in field_perms:
+            assert not can(role_sup_a, perm, ctx_b), (
+                f"Supervisor must NOT be allowed {perm} on foreign site"
+            )
 
         # Missing context -> Rejected
-        assert not can(role_sup_a, Permission.DONOR_CREATE, None)
+        for perm in field_perms:
+            assert not can(role_sup_a, perm, None), (
+                f"Supervisor must NOT be allowed {perm} with missing context"
+            )
 
     def test_supervisor_campaign_live_status(
         self,
@@ -162,10 +174,22 @@ class TestPolicyCanEvaluation:
         """Supervisor cannot write/read donors when campaign is upcoming or ended (Condition L)."""
         ctx_upcoming = PolicyContext(site_id=role_sup_a.site_id, campaign_status="upcoming")
         ctx_ended = PolicyContext(site_id=role_sup_a.site_id, campaign_status="ended")
+        field_perms = [
+            Permission.DONOR_CREATE,
+            Permission.DONOR_READ,
+            Permission.DONOR_UPDATE,
+            Permission.DONOR_DELETE,
+            Permission.PHOTO_UPLOAD,
+            Permission.PHOTO_DELETE,
+        ]
 
-        assert not can(role_sup_a, Permission.DONOR_CREATE, ctx_upcoming)
-        assert not can(role_sup_a, Permission.DONOR_READ, ctx_ended)
-        assert not can(role_sup_a, Permission.PHOTO_UPLOAD, ctx_upcoming)
+        for perm in field_perms:
+            assert not can(role_sup_a, perm, ctx_upcoming), (
+                f"{perm} must be rejected on upcoming campaign"
+            )
+            assert not can(role_sup_a, perm, ctx_ended), (
+                f"{perm} must be rejected on ended campaign"
+            )
 
     def test_deactivated_supervisor_rejected(
         self,

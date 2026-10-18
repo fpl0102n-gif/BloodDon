@@ -10,7 +10,7 @@ import uuid
 from datetime import datetime
 from typing import Any, cast
 
-from sqlalchemy import select, update
+from sqlalchemy import delete, select, update
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.orm import Session
 
@@ -86,4 +86,10 @@ class UserTokenRepository:
         )
         result = self.db.execute(stmt)
         self.db.flush()
+        return int(cast(CursorResult[Any], result).rowcount)
+
+    def delete_expired_tokens(self, now: datetime) -> int:
+        """Hard delete expired tokens per BR-PRIV-11."""
+        stmt = delete(UserToken).where(UserToken.expires_at < now)
+        result = self.db.execute(stmt)
         return int(cast(CursorResult[Any], result).rowcount)

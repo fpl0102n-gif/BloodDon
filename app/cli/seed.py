@@ -28,6 +28,7 @@ from app.models.campaign import Campaign, CampaignSite, Site
 from app.models.donor import Donor
 from app.models.photo import Photo
 from app.models.pledge import Pledge
+from app.models.post import Post
 from app.models.user import User
 
 seed_app = typer.Typer(help="Database seeding commands for development and testing environments.")
@@ -57,6 +58,7 @@ def seed_database(session: Session, *, clean: bool = False) -> dict[str, Any]:
         session.execute(text("DELETE FROM rate_limit_events"))
         session.execute(text("DELETE FROM file_deletion_queue"))
         session.execute(text("DELETE FROM photos"))
+        session.execute(text("DELETE FROM posts"))
         session.execute(text("DELETE FROM donors"))
         session.execute(text("DELETE FROM pledges"))
         session.execute(text("DELETE FROM auth_sessions"))
@@ -658,6 +660,50 @@ def seed_database(session: Session, *, clean: bool = False) -> dict[str, Any]:
     session.add_all(photos)
     session.flush()
 
+    # ==========================================================================
+    # 7. Posts: Awareness articles and guidance (Phase 9)
+    # ==========================================================================
+    post_published = Post(
+        id=uuid.UUID("99999999-1111-1111-1111-111111111111"),
+        campaign_id=c2.id,
+        slug="blood-donation-guide",
+        title="دليل التبرع بالدم: الفوائد الصحية والإرشادات الطبية",
+        excerpt="كل ما تحتاج معرفته عن أهمية التبرع بالدم، شروطه وفوائده الصحية على الجسم وإنقاذ حياة المرضى.",
+        content=(
+            "## أهمية التبرع بالدم\n\n"
+            "يعتبر التبرع بالدم عملاً إنسانياً نبيلاً يساهم في إنقاذ الأرواح في حالات الطوارئ والعمليات الجراحية.\n\n"
+            "### الفوائد الصحية للمتبرع\n\n"
+            "* تجديد خلايا الدم وتنشيط الدورة الدموية.\n"
+            "* تقليل مخاطر أمراض القلب والشرايين.\n"
+            "* فحص طبي شامل ومجاني لضغط الدم والتحاليل الفيروسية.\n\n"
+            "### نصائح قبل التبرع\n\n"
+            "1. شرب كميات كافية من السوائل.\n"
+            "2. أخذ قسط كافٍ من النوم والراحة.\n"
+            "3. تناول وجبة خفيفة قبل القدوم لمركز التبرع."
+        ),
+        cover_url="/static/images/og-default.svg",
+        is_published=True,
+        published_at=now_utc - timedelta(days=2),
+        created_at=now_utc - timedelta(days=3),
+        updated_at=now_utc - timedelta(days=2),
+    )
+    post_draft = Post(
+        id=uuid.UUID("99999999-2222-2222-2222-222222222222"),
+        campaign_id=None,
+        slug="myths-about-blood-donation",
+        title="حقائق وأساطير شائعة حول التبرع بالدم",
+        excerpt="تصحيح المفاهيم الخاطئة والشائعة التي تمنع البعض من المبادرة بالتبرع.",
+        content="مسودة قيد المراجعة والاعتماد الطبي من قبل الطاقم المتخصص.",
+        cover_url=None,
+        is_published=False,
+        published_at=None,
+        created_at=now_utc - timedelta(days=1),
+        updated_at=now_utc - timedelta(days=1),
+    )
+    posts = [post_published, post_draft]
+    session.add_all(posts)
+    session.flush()
+
     return {
         "sites": 4,
         "campaigns": 5,
@@ -668,6 +714,7 @@ def seed_database(session: Session, *, clean: bool = False) -> dict[str, Any]:
         "donors_count": len(reference_donors) + len(extra_donors),
         "pledges_count": len(pledges),
         "photos_count": len(photos),
+        "posts_count": len(posts),
     }
 
 

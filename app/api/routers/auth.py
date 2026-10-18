@@ -23,6 +23,7 @@ from app.api.deps import (
     clear_session_cookie,
     clear_session_reauth,
     generate_csrf_token,
+    get_audit_service,
     get_auth_service,
     get_current_session_and_user,
     get_mfa_service,
@@ -47,6 +48,7 @@ from app.schemas.auth import (
     ResetPasswordIn,
     UserAuthOut,
 )
+from app.services.audit import AuditService
 from app.services.auth import AuthService
 from app.services.mfa import MfaService
 from app.services.sessions import SessionService
@@ -195,14 +197,22 @@ def reauth(
 )
 def logout(
     response: Response,
-    _session_and_user: Annotated[tuple[Any, Any], Depends(get_current_session_and_user)],
+    session_and_user: Annotated[tuple[Any, Any], Depends(get_current_session_and_user)],
     session_token: Annotated[str | None, Depends(get_session_token)],
     session_service: Annotated[SessionService, Depends(get_session_service)],
+    audit_service: Annotated[AuditService, Depends(get_audit_service)],
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> Response:
     """Revoke caller's current session and delete cookie."""
+    _session, user = session_and_user
     if session_token:
         session_service.revoke_session(session_token)
+        audit_service.log_session_revoked(
+            user.id,
+            reason="logout",
+            actor_user_id=user.id,
+            count=1,
+        )
 
     clear_session_cookie(response, settings=settings)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
@@ -218,11 +228,18 @@ def logout_all(
     response: Response,
     session_and_user: Annotated[tuple[Any, Any], Depends(get_current_session_and_user)],
     session_service: Annotated[SessionService, Depends(get_session_service)],
+    audit_service: Annotated[AuditService, Depends(get_audit_service)],
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> Response:
     """Revoke all sessions belonging to the user and clear cookie."""
     session, user = session_and_user
-    session_service.revoke_all_user_sessions(user.id)
+    revoked_count = session_service.revoke_all_user_sessions(user.id)
+    audit_service.log_session_revoked(
+        user.id,
+        reason="logout_all",
+        actor_user_id=user.id,
+        count=revoked_count,
+    )
     clear_session_reauth(session.id)
     clear_session_cookie(response, settings=settings)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

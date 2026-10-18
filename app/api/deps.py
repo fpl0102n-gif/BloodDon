@@ -28,6 +28,7 @@ from app.core.errors import (
     NotAuthenticatedError,
     RateLimitedError,
     ReauthRequiredError,
+    ServiceUnavailableError,
 )
 from app.core.ratelimit import (
     RateLimiter,
@@ -43,13 +44,34 @@ from app.policy import (
     get_required_conditions,
     is_permission_granted,
 )
+from app.repositories.audit import AuditRepository, PhoneRevealRepository
+from app.repositories.campaigns import CampaignRepository
+from app.repositories.donors import DonorRepository
+from app.repositories.file_queue import FileQueueRepository
 from app.repositories.mfa import MfaRecoveryCodeRepository
+from app.repositories.photos import PhotoRepository
+from app.repositories.pledges import PledgeRepository
+from app.repositories.posts import PostRepository
 from app.repositories.sessions import SessionRepository
+from app.repositories.sites import SiteRepository
 from app.repositories.user_tokens import UserTokenRepository
 from app.repositories.users import UserRepository
+from app.services.audit import AuditService
 from app.services.auth import AuthService
+from app.services.campaigns import CampaignService
+from app.services.donors import DonorService
+from app.services.emergency import EmergencyService
+from app.services.file_queue import FileQueueService
 from app.services.mfa import MfaService
+from app.services.photos import PhotoService
+from app.services.pledges import PledgeService
+from app.services.posts import PostService
 from app.services.sessions import SessionService
+from app.services.sites import SiteService
+from app.services.stats import StatsService
+from app.services.uploads import UploadService
+from app.services.users import UserService
+from app.storage import Storage, get_storage
 
 # Safe idempotent HTTP methods that do not modify server state
 SAFE_HTTP_METHODS: frozenset[str] = frozenset({"GET", "HEAD", "OPTIONS"})
@@ -187,19 +209,41 @@ def verify_csrf(
 # ==============================================================================
 
 
-def get_session_service(
+def get_session_repository(
     db: Annotated[Session, Depends(get_db)],
+) -> SessionRepository:
+    """Provide SessionRepository instance bound to request DB session."""
+    return SessionRepository(db)
+
+
+def get_session_service(
+    session_repo: Annotated[SessionRepository, Depends(get_session_repository)],
     clock: Annotated[Clock, Depends(get_clock)],
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> SessionService:
     """Provide SessionService instance bound to request DB session and Clock."""
-    repo = SessionRepository(db)
-    return SessionService(repo, clock=clock, settings=settings)
+    return SessionService(session_repo, clock=clock, settings=settings)
+
+
+def get_audit_repository(
+    db: Annotated[Session, Depends(get_db)],
+) -> AuditRepository:
+    """Provide AuditRepository instance bound to request DB session."""
+    return AuditRepository(db)
+
+
+def get_audit_service(
+    audit_repo: Annotated[AuditRepository, Depends(get_audit_repository)],
+    clock: Annotated[Clock, Depends(get_clock)],
+) -> AuditService:
+    """Provide AuditService instance bound to request DB session and Clock."""
+    return AuditService(audit_repo, clock=clock)
 
 
 def get_auth_service(
     db: Annotated[Session, Depends(get_db)],
     session_service: Annotated[SessionService, Depends(get_session_service)],
+    audit_service: Annotated[AuditService, Depends(get_audit_service)],
     clock: Annotated[Clock, Depends(get_clock)],
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> AuthService:
@@ -211,6 +255,7 @@ def get_auth_service(
         user_repo,
         session_service,
         token_repo=token_repo,
+        audit_service=audit_service,
         mailer=mailer,
         clock=clock,
         settings=settings,
@@ -220,6 +265,7 @@ def get_auth_service(
 def get_mfa_service(
     db: Annotated[Session, Depends(get_db)],
     session_service: Annotated[SessionService, Depends(get_session_service)],
+    audit_service: Annotated[AuditService, Depends(get_audit_service)],
     clock: Annotated[Clock, Depends(get_clock)],
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> MfaService:
@@ -230,8 +276,252 @@ def get_mfa_service(
         user_repo,
         recovery_repo,
         session_service,
+        audit_service=audit_service,
         clock=clock,
         settings=settings,
+    )
+
+
+def get_site_repository(
+    db: Annotated[Session, Depends(get_db)],
+) -> SiteRepository:
+    """Provide SiteRepository instance bound to request DB session."""
+    return SiteRepository(db)
+
+
+def get_site_service(
+    site_repo: Annotated[SiteRepository, Depends(get_site_repository)],
+    audit_service: Annotated[AuditService, Depends(get_audit_service)],
+    clock: Annotated[Clock, Depends(get_clock)],
+) -> SiteService:
+    """Provide SiteService instance bound to request DB session, audit service, and Clock."""
+    return SiteService(site_repo, audit_service=audit_service, clock=clock)
+
+
+def get_campaign_repository(
+    db: Annotated[Session, Depends(get_db)],
+) -> CampaignRepository:
+    """Provide CampaignRepository instance bound to request DB session."""
+    return CampaignRepository(db)
+
+
+def get_campaign_service(
+    campaign_repo: Annotated[CampaignRepository, Depends(get_campaign_repository)],
+    site_repo: Annotated[SiteRepository, Depends(get_site_repository)],
+    audit_service: Annotated[AuditService, Depends(get_audit_service)],
+    clock: Annotated[Clock, Depends(get_clock)],
+) -> CampaignService:
+    """Provide CampaignService instance bound to request DB session, audit service, and Clock."""
+    return CampaignService(
+        campaign_repo,
+        site_repository=site_repo,
+        audit_service=audit_service,
+        clock=clock,
+    )
+
+
+def get_post_repository(
+    db: Annotated[Session, Depends(get_db)],
+) -> PostRepository:
+    """Provide PostRepository instance bound to request DB session."""
+    return PostRepository(db)
+
+
+def get_post_service(
+    post_repo: Annotated[PostRepository, Depends(get_post_repository)],
+    campaign_repo: Annotated[CampaignRepository, Depends(get_campaign_repository)],
+    audit_service: Annotated[AuditService, Depends(get_audit_service)],
+    clock: Annotated[Clock, Depends(get_clock)],
+) -> PostService:
+    """Provide PostService instance bound to repositories, audit service, and Clock."""
+    return PostService(
+        repository=post_repo,
+        campaign_repository=campaign_repo,
+        audit_service=audit_service,
+        clock=clock,
+    )
+
+
+def get_user_repository(
+    db: Annotated[Session, Depends(get_db)],
+) -> UserRepository:
+    """Provide UserRepository instance bound to request DB session."""
+    return UserRepository(db)
+
+
+def get_user_service(
+    user_repo: Annotated[UserRepository, Depends(get_user_repository)],
+    session_repo: Annotated[SessionRepository, Depends(get_session_repository)],
+    site_repo: Annotated[SiteRepository, Depends(get_site_repository)],
+    auth_service: Annotated[AuthService, Depends(get_auth_service)],
+    audit_service: Annotated[AuditService, Depends(get_audit_service)],
+    clock: Annotated[Clock, Depends(get_clock)],
+) -> UserService:
+    """Provide UserService instance bound to request DB session and services."""
+    return UserService(
+        user_repo=user_repo,
+        session_repo=session_repo,
+        site_repo=site_repo,
+        auth_service=auth_service,
+        audit_service=audit_service,
+        clock=clock,
+    )
+
+
+def get_storage_dep() -> Storage:
+    """Provide Storage instance bound to current settings."""
+    return get_storage()
+
+
+def get_upload_service(
+    storage: Annotated[Storage, Depends(get_storage_dep)],
+    audit_service: Annotated[AuditService, Depends(get_audit_service)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> UploadService:
+    """Provide UploadService instance bound to storage, audit service, and settings."""
+    return UploadService(
+        storage=storage,
+        audit_service=audit_service,
+        settings=settings,
+    )
+
+
+def get_donor_repository(
+    db: Annotated[Session, Depends(get_db)],
+) -> DonorRepository:
+    """Provide DonorRepository instance bound to request DB session."""
+    return DonorRepository(db)
+
+
+def get_donor_service(
+    donor_repo: Annotated[DonorRepository, Depends(get_donor_repository)],
+    campaign_repo: Annotated[CampaignRepository, Depends(get_campaign_repository)],
+    site_repo: Annotated[SiteRepository, Depends(get_site_repository)],
+    audit_service: Annotated[AuditService, Depends(get_audit_service)],
+    clock: Annotated[Clock, Depends(get_clock)],
+) -> DonorService:
+    """Provide DonorService instance bound to request DB session, repositories, and services."""
+    return DonorService(
+        donor_repo=donor_repo,
+        campaign_repo=campaign_repo,
+        site_repo=site_repo,
+        audit_service=audit_service,
+        clock=clock,
+    )
+
+
+def get_photo_repository(
+    db: Annotated[Session, Depends(get_db)],
+) -> PhotoRepository:
+    """Provide PhotoRepository instance bound to request DB session."""
+    return PhotoRepository(db)
+
+
+def get_photo_service(
+    photo_repo: Annotated[PhotoRepository, Depends(get_photo_repository)],
+    campaign_repo: Annotated[CampaignRepository, Depends(get_campaign_repository)],
+    site_repo: Annotated[SiteRepository, Depends(get_site_repository)],
+    donor_repo: Annotated[DonorRepository, Depends(get_donor_repository)],
+    storage: Annotated[Storage, Depends(get_storage_dep)],
+    audit_service: Annotated[AuditService, Depends(get_audit_service)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> PhotoService:
+    """Provide PhotoService instance bound to repositories, storage, and audit service."""
+    return PhotoService(
+        photo_repo=photo_repo,
+        campaign_repo=campaign_repo,
+        site_repo=site_repo,
+        donor_repo=donor_repo,
+        storage=storage,
+        audit_service=audit_service,
+        settings=settings,
+    )
+
+
+def get_file_queue_repository(
+    db: Annotated[Session, Depends(get_db)],
+) -> FileQueueRepository:
+    """Provide FileQueueRepository instance bound to request DB session."""
+    return FileQueueRepository(db)
+
+
+def get_file_queue_service(
+    file_queue_repo: Annotated[FileQueueRepository, Depends(get_file_queue_repository)],
+    storage: Annotated[Storage, Depends(get_storage_dep)],
+    clock: Annotated[Clock, Depends(get_clock)],
+    audit_service: Annotated[AuditService, Depends(get_audit_service)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> FileQueueService:
+    """Provide FileQueueService instance bound to repository, storage, clock, and audit service."""
+    return FileQueueService(
+        file_queue_repo=file_queue_repo,
+        storage=storage,
+        clock=clock,
+        audit_service=audit_service,
+        settings=settings,
+    )
+
+
+def get_pledge_repository(
+    db: Annotated[Session, Depends(get_db)],
+) -> PledgeRepository:
+    """Provide PledgeRepository instance bound to request DB session."""
+    return PledgeRepository(db)
+
+
+def get_pledge_service(
+    pledge_repo: Annotated[PledgeRepository, Depends(get_pledge_repository)],
+    campaign_repo: Annotated[CampaignRepository, Depends(get_campaign_repository)],
+    site_repo: Annotated[SiteRepository, Depends(get_site_repository)],
+    settings: Annotated[Settings, Depends(get_settings)],
+    audit_service: Annotated[AuditService, Depends(get_audit_service)],
+) -> PledgeService:
+    """Provide PledgeService instance bound to request DB session, repositories, settings, and audit."""
+    return PledgeService(
+        repository=pledge_repo,
+        campaign_repository=campaign_repo,
+        site_repository=site_repo,
+        settings=settings,
+        audit_service=audit_service,
+    )
+
+
+def get_stats_service(
+    campaign_repo: Annotated[CampaignRepository, Depends(get_campaign_repository)],
+    donor_repo: Annotated[DonorRepository, Depends(get_donor_repository)],
+    pledge_repo: Annotated[PledgeRepository, Depends(get_pledge_repository)],
+    site_repo: Annotated[SiteRepository, Depends(get_site_repository)],
+) -> StatsService:
+    """Provide StatsService instance bound to request repositories."""
+    return StatsService(
+        campaign_repository=campaign_repo,
+        donor_repository=donor_repo,
+        pledge_repository=pledge_repo,
+        site_repository=site_repo,
+    )
+
+
+def get_phone_reveal_repository(
+    db: Annotated[Session, Depends(get_db)],
+) -> PhoneRevealRepository:
+    """Provide PhoneRevealRepository instance bound to request DB session."""
+    return PhoneRevealRepository(db)
+
+
+def get_emergency_service(
+    donor_repo: Annotated[DonorRepository, Depends(get_donor_repository)],
+    phone_reveal_repo: Annotated[PhoneRevealRepository, Depends(get_phone_reveal_repository)],
+    audit_service: Annotated[AuditService, Depends(get_audit_service)],
+    settings: Annotated[Settings, Depends(get_settings)],
+    clock: Annotated[Clock, Depends(get_clock)],
+) -> EmergencyService:
+    """Provide EmergencyService instance bound to request repositories, settings, and clock."""
+    return EmergencyService(
+        donor_repo=donor_repo,
+        phone_reveal_repo=phone_reveal_repo,
+        audit_service=audit_service,
+        settings=settings,
+        clock=clock,
     )
 
 
@@ -360,7 +650,10 @@ def require(
 
         # Check MFA requirement: mandatory for admin role and any session/user with MFA enabled
         has_mfa = bool(getattr(user, "totp_enabled", getattr(user, "mfa_enabled", False)))
-        needs_mfa = Condition.MFA_VERIFIED in conditions or role == "admin" or has_mfa
+        is_mfa_enrollment = permission == Permission.ME_SETUP_MFA and not has_mfa
+        needs_mfa = (
+            Condition.MFA_VERIFIED in conditions or role == "admin" or has_mfa
+        ) and not is_mfa_enrollment
         if needs_mfa and not session.mfa_verified:
             raise MfaRequiredError("Two-factor authentication code required.")
 
@@ -456,3 +749,71 @@ def check_rate_limit(
         return res
 
     return dependency
+
+
+def check_pledge_rate_limit(
+    request: Request,
+    rate_limiter: Annotated[RateLimiter, Depends(get_rate_limiter_dep)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> RateLimitResult:
+    """Enforce sliding-window rate limit for visitor attendance pledges (BR-RATE-03, BR-PLEDGE-11)."""
+    # Decision D-62: If kill switch is tripped, fast-fail with 503 without consuming quota
+    if not settings.pledges_enabled:
+        raise ServiceUnavailableError("Pledges are temporarily unavailable.")
+    ip_hash = get_client_ip_hash(request)
+    rate_key = f"rate:pledge:{ip_hash}"
+    res = rate_limiter.hit(rate_key, limit=settings.rate_pledge_per_hour, window_seconds=3600)
+    if not res.allowed:
+        raise RateLimitedError(
+            "Too many requests. Please try again later.",
+            retry_after=res.retry_after,
+        )
+    return res
+
+
+def check_emergency_list_rate_limit(
+    request: Request,
+    rate_limiter: Annotated[RateLimiter, Depends(get_rate_limiter_dep)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> RateLimitResult:
+    """Enforce sliding-window rate limit for emergency donor list queries (BR-RATE-04)."""
+    # Decision D-62: If kill switch is tripped, fast-fail with 503 without consuming quota
+    if not settings.emergency_enabled:
+        raise ServiceUnavailableError("Emergency service is temporarily unavailable.")
+    ip_hash = get_client_ip_hash(request)
+    rate_key = f"rate:emergency_list:{ip_hash}"
+    res = rate_limiter.hit(
+        rate_key,
+        limit=settings.rate_emergency_list_per_hour,
+        window_seconds=3600,
+    )
+    if not res.allowed:
+        raise RateLimitedError(
+            "Too many requests. Please try again later.",
+            retry_after=res.retry_after,
+        )
+    return res
+
+
+def check_emergency_reveal_rate_limit(
+    request: Request,
+    rate_limiter: Annotated[RateLimiter, Depends(get_rate_limiter_dep)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> RateLimitResult:
+    """Enforce sliding-window rate limit for emergency phone reveals (BR-RATE-05, BR-EMERG-07 ★)."""
+    # Decision D-62: If kill switch is tripped, fast-fail with 503 without consuming quota
+    if not settings.emergency_enabled:
+        raise ServiceUnavailableError("Emergency service is temporarily unavailable.")
+    ip_hash = get_client_ip_hash(request)
+    rate_key = f"rate:emergency_reveal:{ip_hash}"
+    res = rate_limiter.hit(
+        rate_key,
+        limit=settings.rate_emergency_reveal_per_hour,
+        window_seconds=3600,
+    )
+    if not res.allowed:
+        raise RateLimitedError(
+            "Too many requests. Please try again later.",
+            retry_after=res.retry_after,
+        )
+    return res

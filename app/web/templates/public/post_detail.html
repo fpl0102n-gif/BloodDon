@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block title %}{{ post.title }} | يوم التبرع بالدم{% endblock %}
+{% block og_title %}{{ post.title }}{% endblock %}
+{% block og_description %}{{ post.excerpt or post.title }}{% endblock %}
+{% block og_url %}{{ canonical_url }}{% endblock %}
+{% block canonical_url %}{{ canonical_url }}{% endblock %}
+{% block og_image %}{{ og_image_url }}{% endblock %}
+{% block og_type %}article{% endblock %}
+
+{% block content %}
+<article class="post-article-container">
+    <div class="container article-container">
+        <nav class="breadcrumb-nav" aria-label="مسار التنقل">
+            <ol class="breadcrumb-list">
+                <li class="breadcrumb-item"><a href="/">الرئيسية</a></li>
+                <li class="breadcrumb-separator">/</li>
+                <li class="breadcrumb-item"><a href="/posts">المنشورات</a></li>
+                <li class="breadcrumb-separator">/</li>
+                <li class="breadcrumb-item active" aria-current="page">{{ post.title }}</li>
+            </ol>
+        </nav>
+
+        <header class="article-header">
+            <h1 class="article-title">{{ post.title }}</h1>
+            <div class="article-meta">
+                {% if post.published_at %}
+                <span class="meta-label">تاريخ النشر:</span>
+                <time datetime="{{ post.published_at.isoformat() }}" class="article-date">
+                    {{ post.published_at.strftime('%Y-%m-%d') }}
+                </time>
+                {% endif %}
+            </div>
+            {% if post.excerpt %}
+            <p class="article-lead">{{ post.excerpt }}</p>
+            {% endif %}
+        </header>
+
+        {% if post.cover_url %}
+        <div class="article-cover">
+            <img src="{{ post.cover_url }}" alt="{{ post.title }}" class="article-cover-img">
+        </div>
+        {% endif %}
+
+        <div class="article-content">
+            {{ content_html | safe }}
+        </div>
+
+        <footer class="article-footer">
+            <div class="article-actions">
+                <a href="/posts" class="btn-back">← العودة إلى قائمة المنشورات</a>
+            </div>
+        </footer>
+    </div>
+</article>
+{% endblock %}

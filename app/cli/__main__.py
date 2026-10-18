@@ -8,7 +8,9 @@ Implements CLI commands specified in CLAUDE.md §4:
 import typer
 
 from app.cli.create_admin import create_admin_cmd
+from app.cli.file_queue import process_file_queue_cmd
 from app.cli.migrate import check_migrations_cmd
+from app.cli.purge import purge_cmd
 from app.cli.seed import seed_cmd
 from app.cli.setup_postgres import setup_postgres_cmd
 from app.cli.verify_db import verify_database_cmd
@@ -23,7 +25,10 @@ cli_app = typer.Typer(
 # Register CLI commands
 cli_app.command(name="create-admin")(create_admin_cmd)
 cli_app.command(name="seed")(seed_cmd)
+cli_app.command(name="purge")(purge_cmd)
+cli_app.command(name="process-file-queue")(process_file_queue_cmd)
 cli_app.command(name="check-migrations")(check_migrations_cmd)
+
 cli_app.command(name="verify-database")(verify_database_cmd)
 cli_app.command(name="verify-gate3")(verify_database_cmd)
 cli_app.command(name="setup-postgres")(setup_postgres_cmd)
